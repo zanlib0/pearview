@@ -1,4 +1,4 @@
-<li class="item-row">
+<li id={"item-#{@item.id}"} class="item-row">
   <label class="item-label">
     <input
       class="tick-box"
@@ -7,4 +7,24 @@
     />
     <span class={["item-name", @item.status == :not_available && "-struck"]}>{@item.name}</span>
   </label>
+  <div class="item-actions">
+    <button
+      type="button"
+      class="stamp-button -ghost -small"
+      hx-get={~p"/items/#{@item.id}/edit"}
+      hx-target={"#item-#{@item.id}"}
+      hx-swap="outerHTML"
+    >
+      Edit
+    </button>
+    <button
+      type="button"
+      class="stamp-button -ghost -small"
+      hx-delete={~p"/items/#{@item.id}"}
+      hx-target={"#item-#{@item.id}"}
+      hx-swap="outerHTML"
+    >
+      Delete
+    </button>
+  </div>
 </li>

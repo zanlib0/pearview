@@ -45,4 +45,74 @@ defmodule PearviewWeb.ItemControllerTest do
     assert item.status == :pending
     assert item.section_id == nil
   end
+
+  test "GET /items/:id/edit returns the item's edit form fragment", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = get(conn, ~p"/items/#{item.id}/edit")
+    body = html_response(conn, 200)
+
+    # the response is just the edit row, not the whole page
+    refute body =~ "pearview"
+    assert body =~ ~s(hx-patch="/items/#{item.id}")
+    assert body =~ ~s(name="item[name]")
+    assert body =~ ~s(value="milk")
+  end
+
+  test "GET /items/:id returns the item's display row fragment (edit cancel)", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = get(conn, ~p"/items/#{item.id}")
+    body = html_response(conn, 200)
+
+    refute body =~ "pearview"
+    assert body =~ ~s(class="item-row")
+    assert body =~ "milk"
+  end
+
+  test "PATCH /items/:id renames the item and returns its updated row", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "  Oat   milk "})
+    body = html_response(conn, 200)
+
+    # the response is just the updated display row, not the edit form or page
+    assert body =~ ~s(class="item-row")
+    assert body =~ "Oat   milk"
+    refute body =~ ~s(hx-patch)
+    refute body =~ "pearview"
+
+    reloaded = Repo.get!(Item, item.id)
+    assert reloaded.name == "  Oat   milk "
+    assert reloaded.normalized_name == "oat milk"
+  end
+
+  test "PATCH /items/:id with a blank name re-renders the edit form unchanged", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "   "})
+    body = html_response(conn, 422)
+
+    assert body =~ ~s(hx-patch="/items/#{item.id}")
+    assert Repo.get!(Item, item.id).name == "milk"
+  end
+
+  test "DELETE /items/:id hard-deletes the item and returns an empty fragment", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = delete(conn, ~p"/items/#{item.id}")
+
+    assert response(conn, 200) == ""
+    assert Repo.get(Item, item.id) == nil
+  end
+
+  test "GET / renders each item's edit and delete controls", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "Bananas", normalized_name: "bananas", status: :pending})
+
+    conn = get(conn, ~p"/")
+    body = html_response(conn, 200)
+
+    assert body =~ ~s(hx-get="/items/#{item.id}/edit")
+    assert body =~ ~s(hx-delete="/items/#{item.id}")
+  end
 end

@@ -1,0 +1,33 @@
+<li id={"item-#{@item.id}"} class="item-row -editing">
+  <form
+    class="item-edit"
+    hx-patch={~p"/items/#{@item.id}"}
+    hx-target={"#item-#{@item.id}"}
+    hx-swap="outerHTML"
+  >
+    <div class="form-field item-edit-field">
+      <label class="label _sr-only" for={"item_name_#{@item.id}"}>Item name</label>
+      <input
+        class="input"
+        id={"item_name_#{@item.id}"}
+        name="item[name]"
+        type="text"
+        value={@item.name}
+        autocomplete="off"
+        required
+      />
+    </div>
+    <div class="item-actions">
+      <button class="stamp-button -accent -small" type="submit">Save</button>
+      <button
+        type="button"
+        class="stamp-button -ghost -small"
+        hx-get={~p"/items/#{@item.id}"}
+        hx-target={"#item-#{@item.id}"}
+        hx-swap="outerHTML"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+</li>

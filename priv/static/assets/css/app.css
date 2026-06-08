@@ -51,9 +51,37 @@
 
 /* The tick-box and item name flow inline inside .item-label; the natural
  * whitespace between them is the gap (Masthead tick-box convention). */
+.item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .item-name {
   font-size: var(--text-base);
   color: var(--ink);
+}
+
+/* Edit / delete sit at the row's trailing edge, revealed without crowding the
+ * name. Caller-layer layout (the buttons stay sealed Masthead boxes). */
+.item-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
+/* Inline rename form: the entry field grows to fill the row, Save/Cancel ride
+ * alongside it — same trailing edge the edit button sat on. */
+.item-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.item-edit-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
 }
 
 /* Done (checked-off) and not-available items both read as struck through. */
