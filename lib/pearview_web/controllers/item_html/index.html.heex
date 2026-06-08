@@ -12,7 +12,6 @@
     <li :for={item <- @items} class="item-row">
       <label class="item-label">
         <input
-          :if={item.status != :not_available}
           class="tick-box"
           type="checkbox"
           checked={item.status == :checked}
