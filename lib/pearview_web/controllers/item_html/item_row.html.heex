@@ -7,24 +7,20 @@
     />
     <span class="_sr-only">Mark {@item.name}</span>
   </label>
-  <form
-    class="item-rename"
+  <label class="_sr-only" for={"item_name_#{@item.id}"}>Item name</label>
+  <input
+    class={["item-name-input", @item.status == :not_available && "-struck"]}
+    id={"item_name_#{@item.id}"}
+    name="item[name]"
+    type="text"
+    value={@item.name}
+    autocomplete="off"
+    required
     hx-patch={~p"/items/#{@item.id}"}
     hx-target={"#item-#{@item.id}"}
     hx-swap="outerHTML"
-    hx-trigger="change"
-  >
-    <label class="_sr-only" for={"item_name_#{@item.id}"}>Item name</label>
-    <input
-      class={["item-name-input", @item.status == :not_available && "-struck"]}
-      id={"item_name_#{@item.id}"}
-      name="item[name]"
-      type="text"
-      value={@item.name}
-      autocomplete="off"
-      required
-    />
-  </form>
+    hx-trigger="change, keyup[key=='Enter']"
+  />
   <button
     type="button"
     class="item-delete"

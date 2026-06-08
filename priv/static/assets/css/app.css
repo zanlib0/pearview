@@ -59,13 +59,7 @@
 /* The name is always inline-editable: a borderless field that reads as plain
  * list text until hovered/focused, when a hairline underline signals it edits.
  * Built from tokens, not a restyle of Masthead's sealed .input. It saves on
- * change (blur) and the row swaps itself back in. */
-.item-rename {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-}
-
+ * change (blur) or Enter, and the row swaps itself back in. */
 .item-name-input {
   flex: 1 1 auto;
   min-width: 0;
