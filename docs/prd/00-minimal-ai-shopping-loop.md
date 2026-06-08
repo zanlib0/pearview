@@ -85,9 +85,17 @@ Three tables. **No `session`, no `categorization` table, no `item.position`.**
   - `normalized_name` = lowercase, trim, collapse internal whitespace.
   - Delete is a **hard delete** (`Repo.delete`), not a soft `deleted` status.
 
+**As built:** schemas live under `Pearview.Shopping.{Store, Section, Item}`; the
+DB tables are idiomatically pluralised (`stores`, `sections`, `items`) — the
+singular names above are the conceptual entities. `status` is an `Ecto.Enum`
+(`:pending | :checked | :not_available`, default `:pending`). The `section`
+FK uses `on_delete: :nilify_all` (deleting a section uncategorises its items
+rather than deleting them); `section.store_id` uses `:delete_all`.
+
 The single store and its ordered sections (with hints) are created in
 `priv/repo/seeds.exs`. Items belong directly to the app's single shared list
-(no session wrapper).
+(no session wrapper). Seed items are inserted **uncategorised** (`section_id`
+nil) in a mix of statuses so the list view exercises each state.
 
 ### Domain — `Pearview.Shopping` context
 The context owns all data access and the categorisation orchestration:
@@ -122,6 +130,37 @@ The context owns all data access and the categorisation orchestration:
 2. Order section groups by `section.position` (the route).
 3. Within a section, order items by `inserted_at` (insertion order).
 4. Items with `section_id = nil` render in an **"Other"** group pinned **last**.
+
+### Rendering — item-list display (issue #1, as built)
+The first vertical slice renders the **flat list of items** (the Operator's read
+view) at the app root `/`, replacing the generated Phoenix welcome page. It is
+**read-only** in this slice: rows reflect each item's status but do not yet write
+— check-off / not-available persistence arrives with the Shopper view and its
+HTMX fragment swaps. The markup is already shaped for that (add `hx-*`, remove
+nothing).
+
+- **Each item is a Masthead `.tick-box`** whose state mirrors `item.status`:
+  - `pending` → unchecked box + plain name.
+  - `checked` → checked box + name struck through.
+  - `not_available` → **no checkbox**, name struck through. No status tag/stamp;
+    the strikethrough alone marks it (distinguished from `checked` by the absence
+    of a box).
+- **No rules between rows** — row padding carries the vertical rhythm; the list
+  is a ruleless column. Rows keep a comfortable touch target (`min-height`).
+- **Masthead anatomy:** a `<label>` wraps the bare `<input class="tick-box">`
+  with the name as label text. The strikethrough / faded treatments are
+  caller-layer CSS built from Masthead tokens (`--ink-3`, `--space-*`), not
+  contract departures.
+
+### Masthead wiring (as built)
+- Masthead is linked via its CDN stylesheet; the document sets
+  `data-theme="light"` and `data-accent="peridot"` on `<html>`.
+- The generated **daisyUI / Tailwind scaffolding was removed** as dead code under
+  Masthead: `priv/static/assets/default.css`, `CoreComponents`
+  (button / input / flash / table / icon), and the daisyUI chrome in `Layouts`
+  (`app/1`, the flash group). `translate_error/translate_errors` went with it and
+  will be reintroduced (Masthead-styled) when the Operator add/edit forms need
+  form-error rendering.
 
 ### Web / HTMX interactions (contract, not file paths)
 - **Operator view:** renders the flat list + add form. Add / edit / delete each
@@ -158,8 +197,9 @@ never private function internals. Three seams:
   Other last; check-off and not-available update item status and return the right
   fragment.
 
-**Prior art:** `test/pearview_web/controllers/page_controller_test.exs` is the
-existing ConnCase pattern to follow for request tests.
+**Prior art:** `test/pearview_web/controllers/item_controller_test.exs` is the
+ConnCase pattern to follow for request tests (it replaced the generated
+`page_controller_test.exs`).
 
 ## Out of Scope
 
