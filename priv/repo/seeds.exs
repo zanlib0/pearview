@@ -45,13 +45,22 @@ sections
   })
 end)
 
-# A few Items on the shared list. Uncategorised (no section yet) and pending —
-# categorisation runs in the Shopper view in a later phase.
-["Bananas", "Oat milk", "Sourdough loaf", "Free-range eggs", "Spaghetti", "Bin bags"]
-|> Enum.each(fn name ->
+# A few Items on the shared list, in a mix of states so the list view shows
+# each one. Uncategorised (no section yet) — categorisation runs in the Shopper
+# view in a later phase.
+[
+  {"Bananas", :pending},
+  {"Oat milk", :pending},
+  {"Sourdough loaf", :checked},
+  {"Free-range eggs", :pending},
+  {"Spaghetti", :checked},
+  {"Capers", :not_available},
+  {"Bin bags", :pending}
+]
+|> Enum.each(fn {name, status} ->
   Repo.insert!(%Item{
     name: name,
     normalized_name: normalize.(name),
-    status: :pending
+    status: status
   })
 end)

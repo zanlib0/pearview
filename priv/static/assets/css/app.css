@@ -22,7 +22,6 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: var(--rule-1) solid var(--rule);
 }
 
 .item-row {
@@ -32,7 +31,6 @@
   gap: var(--space-3);
   min-height: var(--space-11);
   padding: var(--space-3) var(--space-1);
-  border-bottom: var(--rule-1) solid var(--rule);
 }
 
 /* The tick-box and item name flow inline inside .item-label; the natural
@@ -42,8 +40,9 @@
   color: var(--ink);
 }
 
-/* A checked-off item reads as done at a glance. */
-.tick-box:checked + .item-name {
+/* Done (checked-off) and not-available items both read as struck through. */
+.tick-box:checked + .item-name,
+.item-name.-struck {
   text-decoration: line-through;
   color: var(--ink-3);
 }

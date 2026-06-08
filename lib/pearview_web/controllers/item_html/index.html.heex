@@ -12,11 +12,12 @@
     <li :for={item <- @items} class="item-row">
       <label class="item-label">
         <input
+          :if={item.status != :not_available}
           class="tick-box"
           type="checkbox"
           checked={item.status == :checked}
-          disabled={item.status == :not_available}
-        /> <span class="item-name">{item.name}</span>
+        />
+        <span class={["item-name", item.status == :not_available && "-struck"]}>{item.name}</span>
       </label>
       <span :if={item.status == :not_available} class="cancel-stamp">not available</span>
     </li>
