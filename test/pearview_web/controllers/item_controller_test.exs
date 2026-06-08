@@ -45,4 +45,55 @@ defmodule PearviewWeb.ItemControllerTest do
     assert item.status == :pending
     assert item.section_id == nil
   end
+
+  test "PATCH /items/:id renames the item and returns its updated row", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "  Oat   milk "})
+    body = html_response(conn, 200)
+
+    # the response is just the row fragment, carrying the new name in its field
+    assert body =~ ~s(class="item-row")
+    assert body =~ ~s(value="  Oat   milk ")
+    refute body =~ "pearview"
+
+    reloaded = Repo.get!(Item, item.id)
+    assert reloaded.name == "  Oat   milk "
+    assert reloaded.normalized_name == "oat milk"
+  end
+
+  test "PATCH /items/:id with a blank name leaves the item unchanged (422)", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "   "})
+    body = html_response(conn, 422)
+
+    # the unchanged row comes back; HTMX leaves the existing row in place
+    assert body =~ ~s(value="milk")
+    assert Repo.get!(Item, item.id).name == "milk"
+  end
+
+  test "DELETE /items/:id hard-deletes the item and returns an empty fragment", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+    conn = delete(conn, ~p"/items/#{item.id}")
+
+    assert response(conn, 200) == ""
+    assert Repo.get(Item, item.id) == nil
+  end
+
+  test "GET / renders each item's inline name field and delete control", %{conn: conn} do
+    item = Repo.insert!(%Item{name: "Bananas", normalized_name: "bananas", status: :pending})
+
+    conn = get(conn, ~p"/")
+    body = html_response(conn, 200)
+
+    # the name is an always-editable field that PATCHes on change
+    assert body =~ ~s(hx-patch="/items/#{item.id}")
+    assert body =~ ~s(name="item[name]")
+    assert body =~ ~s(value="Bananas")
+    # delete is a bare control, not a labelled button
+    assert body =~ ~s(hx-delete="/items/#{item.id}")
+    refute body =~ "Delete</button>"
+  end
 end

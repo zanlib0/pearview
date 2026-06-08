@@ -22,4 +22,37 @@ defmodule PearviewWeb.ItemController do
         send_resp(conn, :unprocessable_entity, "")
     end
   end
+
+  @doc """
+  Renames an item from the inline name field and returns its updated row, which
+  HTMX swaps in place (no full reload). On invalid input the row is re-rendered
+  unchanged with a 422, so HTMX leaves the existing row in place.
+  """
+  def update(conn, %{"id" => id, "item" => item_params}) do
+    item = Shopping.get_item!(id)
+
+    case Shopping.update_item(item, item_params) do
+      {:ok, item} ->
+        conn
+        |> put_root_layout(html: false)
+        |> render(:item_row, item: item)
+
+      {:error, _changeset} ->
+        conn
+        |> put_root_layout(html: false)
+        |> put_status(:unprocessable_entity)
+        |> render(:item_row, item: item)
+    end
+  end
+
+  @doc """
+  Hard-deletes an item and returns an empty body; HTMX removes its row from the
+  list (no full reload).
+  """
+  def delete(conn, %{"id" => id}) do
+    item = Shopping.get_item!(id)
+    {:ok, _item} = Shopping.delete_item(item)
+
+    send_resp(conn, :ok, "")
+  end
 end
