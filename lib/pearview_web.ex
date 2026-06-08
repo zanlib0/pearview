@@ -79,8 +79,6 @@ defmodule PearviewWeb do
     quote do
       # HTML escaping functionality
       import Phoenix.HTML
-      # Core UI components
-      import PearviewWeb.CoreComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

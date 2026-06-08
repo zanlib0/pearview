@@ -1,0 +1,26 @@
+<main class="page">
+  <header class="press-masthead">
+    <a class="title" href={~p"/"}>pearview</a>
+    <nav class="nav">
+      <a href={~p"/"} aria-current="page">list</a>
+    </nav>
+  </header>
+
+  <h1 class="t-heading page-heading">Shopping list</h1>
+
+  <ul :if={@items != []} class="item-list">
+    <li :for={item <- @items} class="item-row">
+      <label class="item-label">
+        <input
+          :if={item.status != :not_available}
+          class="tick-box"
+          type="checkbox"
+          checked={item.status == :checked}
+        />
+        <span class={["item-name", item.status == :not_available && "-struck"]}>{item.name}</span>
+      </label>
+    </li>
+  </ul>
+
+  <p :if={@items == []} class="empty-note t-body">Nothing on the list yet.</p>
+</main>
