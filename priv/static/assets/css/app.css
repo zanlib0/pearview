@@ -1,1 +1,46 @@
-/* This file is for your main application CSS */
+/* Caller-layer CSS for Pearview.
+ *
+ * Masthead ships no layout — spacing, page rhythm and custom list components
+ * are the caller's job (Masthead gap-protocol bucket 1). Everything here is
+ * built from Masthead tokens; no hard-coded colours or px sizes (px is for
+ * hairlines only).
+ */
+
+/* Page shell: a single centred column, comfortable on a phone. */
+.page {
+  max-width: 38rem;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-12);
+}
+
+.page-heading {
+  margin: var(--space-8) 0 var(--space-4);
+}
+
+/* The flat shopping list. Hairline-ruled rows with generous touch targets. */
+.item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: var(--rule-1) solid var(--rule);
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--space-11);
+  padding: var(--space-3) var(--space-1);
+  border-bottom: var(--rule-1) solid var(--rule);
+}
+
+.item-name {
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.empty-note {
+  margin-top: var(--space-6);
+  color: var(--ink-2);
+}
