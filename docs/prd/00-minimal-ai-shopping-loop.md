@@ -144,6 +144,13 @@ nothing).
   - `checked` → checked box + name struck through.
   - `not_available` → unchecked box + name struck through. No status tag/stamp;
     the strikethrough alone marks it.
+- **The tick-box is a tri-state cycle, not a plain checkbox** (the marking
+  interaction; not yet wired). Tapping an item advances its status
+  `pending → checked → not_available → pending`, persisting on each tap (an HTMX
+  fragment swap once the write path lands). A single tap-cycling control covers
+  both *check off* (story #11) and *mark not available* (story #13) rather than
+  two separate controls. Read-only in this slice; the markup is already shaped
+  for it.
 - **No rules between rows** — row padding carries the vertical rhythm; the list
   is a ruleless column. Rows keep a comfortable touch target (`min-height`).
 - **Masthead anatomy:** a `<label>` wraps the bare `<input class="tick-box">`
@@ -165,8 +172,9 @@ nothing).
 - **Operator view:** renders the flat list + add form. Add / edit / delete each
   return an HTML fragment so the list updates without full reload.
 - **Shopper view:** on load, triggers `categorize_uncategorized`, shows a brief
-  spinner, then renders the route-ordered grouped list. Check-off and
-  not-available each return an updated HTML fragment.
+  spinner, then renders the route-ordered grouped list. Tapping an item cycles
+  its status (`pending → checked → not_available → pending`; the tri-state
+  tick-box above) and returns an updated HTML fragment.
 - **Liveness:** an HTMX trigger on `visibilitychange`/focus refetches the current
   view when the user unlocks the phone or refocuses the tab (like React Router
   refetch-on-focus). **No decaying poll in this phase** (deferred to Phase 2).
