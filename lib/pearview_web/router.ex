@@ -19,8 +19,6 @@ defmodule PearviewWeb.Router do
 
     get "/", ItemController, :index
     post "/items", ItemController, :create
-    get "/items/:id", ItemController, :show
-    get "/items/:id/edit", ItemController, :edit
     patch "/items/:id", ItemController, :update
     delete "/items/:id", ItemController, :delete
   end

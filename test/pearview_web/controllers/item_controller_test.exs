@@ -46,40 +46,15 @@ defmodule PearviewWeb.ItemControllerTest do
     assert item.section_id == nil
   end
 
-  test "GET /items/:id/edit returns the item's edit form fragment", %{conn: conn} do
-    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
-
-    conn = get(conn, ~p"/items/#{item.id}/edit")
-    body = html_response(conn, 200)
-
-    # the response is just the edit row, not the whole page
-    refute body =~ "pearview"
-    assert body =~ ~s(hx-patch="/items/#{item.id}")
-    assert body =~ ~s(name="item[name]")
-    assert body =~ ~s(value="milk")
-  end
-
-  test "GET /items/:id returns the item's display row fragment (edit cancel)", %{conn: conn} do
-    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
-
-    conn = get(conn, ~p"/items/#{item.id}")
-    body = html_response(conn, 200)
-
-    refute body =~ "pearview"
-    assert body =~ ~s(class="item-row")
-    assert body =~ "milk"
-  end
-
   test "PATCH /items/:id renames the item and returns its updated row", %{conn: conn} do
     item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
 
     conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "  Oat   milk "})
     body = html_response(conn, 200)
 
-    # the response is just the updated display row, not the edit form or page
+    # the response is just the row fragment, carrying the new name in its field
     assert body =~ ~s(class="item-row")
-    assert body =~ "Oat   milk"
-    refute body =~ ~s(hx-patch)
+    assert body =~ ~s(value="  Oat   milk ")
     refute body =~ "pearview"
 
     reloaded = Repo.get!(Item, item.id)
@@ -87,13 +62,14 @@ defmodule PearviewWeb.ItemControllerTest do
     assert reloaded.normalized_name == "oat milk"
   end
 
-  test "PATCH /items/:id with a blank name re-renders the edit form unchanged", %{conn: conn} do
+  test "PATCH /items/:id with a blank name leaves the item unchanged (422)", %{conn: conn} do
     item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
 
     conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "   "})
     body = html_response(conn, 422)
 
-    assert body =~ ~s(hx-patch="/items/#{item.id}")
+    # the unchanged row comes back; HTMX leaves the existing row in place
+    assert body =~ ~s(value="milk")
     assert Repo.get!(Item, item.id).name == "milk"
   end
 
@@ -106,13 +82,18 @@ defmodule PearviewWeb.ItemControllerTest do
     assert Repo.get(Item, item.id) == nil
   end
 
-  test "GET / renders each item's edit and delete controls", %{conn: conn} do
+  test "GET / renders each item's inline name field and delete control", %{conn: conn} do
     item = Repo.insert!(%Item{name: "Bananas", normalized_name: "bananas", status: :pending})
 
     conn = get(conn, ~p"/")
     body = html_response(conn, 200)
 
-    assert body =~ ~s(hx-get="/items/#{item.id}/edit")
+    # the name is an always-editable field that PATCHes on change
+    assert body =~ ~s(hx-patch="/items/#{item.id}")
+    assert body =~ ~s(name="item[name]")
+    assert body =~ ~s(value="Bananas")
+    # delete is a bare control, not a labelled button
     assert body =~ ~s(hx-delete="/items/#{item.id}")
+    refute body =~ "Delete</button>"
   end
 end

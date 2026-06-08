@@ -49,44 +49,75 @@
   padding: var(--space-1) 0;
 }
 
-/* The tick-box and item name flow inline inside .item-label; the natural
- * whitespace between them is the gap (Masthead tick-box convention). */
-.item-label {
-  flex: 1 1 auto;
-  min-width: 0;
+/* The tick-box carries the item name as its (visually hidden) accessible name;
+ * the visible text lives in the always-editable field beside it. */
+.item-check {
+  flex: 0 0 auto;
+  display: inline-flex;
 }
 
-.item-name {
+/* The name is always inline-editable: a borderless field that reads as plain
+ * list text until hovered/focused, when a hairline underline signals it edits.
+ * Built from tokens, not a restyle of Masthead's sealed .input. It saves on
+ * change (blur) and the row swaps itself back in. */
+.item-rename {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+}
+
+.item-name-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: inherit;
   font-size: var(--text-base);
   color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: var(--rule-1) solid transparent;
+  padding: var(--space-1) 0;
 }
 
-/* Edit / delete sit at the row's trailing edge, revealed without crowding the
- * name. Caller-layer layout (the buttons stay sealed Masthead boxes). */
-.item-actions {
-  display: flex;
+.item-name-input:hover {
+  border-bottom-color: var(--rule-soft);
+}
+
+.item-name-input:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+/* A bare ✕ at the trailing edge — quieter than a labelled button, ruby on
+ * hover via the row's own data-accent. Caller-layer control (bucket 1). */
+.item-delete {
   flex: 0 0 auto;
-  gap: var(--space-2);
-}
-
-/* Inline rename form: the entry field grows to fill the row, Save/Cancel ride
- * alongside it — same trailing edge the edit button sat on. */
-.item-edit {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  width: 100%;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: var(--text-lede);
+  line-height: 1;
+  cursor: pointer;
 }
 
-.item-edit-field {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
+.item-delete:hover,
+.item-delete:focus-visible {
+  color: var(--accent);
+}
+
+.item-delete:focus-visible {
+  outline: var(--rule-1) solid var(--accent);
+  outline-offset: var(--space-1);
 }
 
 /* Done (checked-off) and not-available items both read as struck through. */
-.tick-box:checked + .item-name,
-.item-name.-struck {
+.item-row:has(.tick-box:checked) .item-name-input,
+.item-name-input.-struck {
   text-decoration: line-through;
   color: var(--ink-3);
 }
