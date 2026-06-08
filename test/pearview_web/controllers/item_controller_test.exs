@@ -12,7 +12,7 @@ defmodule PearviewWeb.ItemControllerTest do
     conn = get(conn, ~p"/")
     body = html_response(conn, 200)
 
-    assert body =~ "Shopping list"
+    assert body =~ "pearview"
     assert body =~ "Bananas"
     assert body =~ "Oat milk"
     assert body =~ ~s(class="tick-box")
@@ -37,7 +37,7 @@ defmodule PearviewWeb.ItemControllerTest do
     # the response is just the new row, not the whole page
     assert body =~ ~s(class="item-row")
     assert body =~ "Oat   milk"
-    refute body =~ "Shopping list"
+    refute body =~ "pearview"
 
     assert [%Item{} = item] = Repo.all(Item)
     assert item.name == "  Oat   milk "

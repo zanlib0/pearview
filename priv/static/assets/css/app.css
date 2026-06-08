@@ -21,7 +21,7 @@
  * beneath it, comfortable to reach one-handed on a phone. */
 .add-item {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-3);
   margin: var(--space-6) 0;
 }
