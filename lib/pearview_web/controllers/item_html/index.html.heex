@@ -10,10 +10,15 @@
 
   <ul :if={@items != []} class="item-list">
     <li :for={item <- @items} class="item-row">
-      <span class="item-name">{item.name}</span>
-      <span :if={item.status != :pending} class="cancel-stamp">
-        {item.status |> to_string() |> String.replace("_", " ")}
-      </span>
+      <label class="item-label">
+        <input
+          class="tick-box"
+          type="checkbox"
+          checked={item.status == :checked}
+          disabled={item.status == :not_available}
+        /> <span class="item-name">{item.name}</span>
+      </label>
+      <span :if={item.status == :not_available} class="cancel-stamp">not available</span>
     </li>
   </ul>
 

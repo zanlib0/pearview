@@ -35,9 +35,17 @@
   border-bottom: var(--rule-1) solid var(--rule);
 }
 
+/* The tick-box and item name flow inline inside .item-label; the natural
+ * whitespace between them is the gap (Masthead tick-box convention). */
 .item-name {
   font-size: var(--text-base);
   color: var(--ink);
+}
+
+/* A checked-off item reads as done at a glance. */
+.tick-box:checked + .item-name {
+  text-decoration: line-through;
+  color: var(--ink-3);
 }
 
 .empty-note {

@@ -4,9 +4,9 @@ defmodule PearviewWeb.ItemControllerTest do
   alias Pearview.Repo
   alias Pearview.Shopping.Item
 
-  test "GET / renders every item on the list", %{conn: conn} do
+  test "GET / renders every item on the list as a tick-box", %{conn: conn} do
     Repo.insert!(%Item{name: "Bananas", normalized_name: "bananas", status: :pending})
-    Repo.insert!(%Item{name: "Oat milk", normalized_name: "oat milk", status: :pending})
+    Repo.insert!(%Item{name: "Oat milk", normalized_name: "oat milk", status: :checked})
 
     conn = get(conn, ~p"/")
     body = html_response(conn, 200)
@@ -14,5 +14,8 @@ defmodule PearviewWeb.ItemControllerTest do
     assert body =~ "Shopping list"
     assert body =~ "Bananas"
     assert body =~ "Oat milk"
+    assert body =~ ~s(class="tick-box")
+    # the checked item renders a checked box
+    assert body =~ "checked"
   end
 end
