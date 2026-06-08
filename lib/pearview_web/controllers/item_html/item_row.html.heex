@@ -1,0 +1,10 @@
+<li class="item-row">
+  <label class="item-label">
+    <input
+      class="tick-box"
+      type="checkbox"
+      checked={@item.status == :checked}
+    />
+    <span class={["item-name", @item.status == :not_available && "-struck"]}>{@item.name}</span>
+  </label>
+</li>

@@ -12,7 +12,7 @@ defmodule PearviewWeb.ItemControllerTest do
     conn = get(conn, ~p"/")
     body = html_response(conn, 200)
 
-    assert body =~ "Shopping list"
+    assert body =~ "pearview"
     assert body =~ "Bananas"
     assert body =~ "Oat milk"
     assert body =~ ~s(class="tick-box")
@@ -20,5 +20,29 @@ defmodule PearviewWeb.ItemControllerTest do
     assert body =~ "checked"
     # the not-available item renders struck through with no checkbox
     assert body =~ "-struck"
+  end
+
+  test "GET / renders the add-item form", %{conn: conn} do
+    conn = get(conn, ~p"/")
+    body = html_response(conn, 200)
+
+    assert body =~ ~s(hx-post="/items")
+    assert body =~ ~s(name="item[name]")
+  end
+
+  test "POST /items creates a pending item and returns its row fragment", %{conn: conn} do
+    conn = post(conn, ~p"/items", item: %{name: "  Oat   milk "})
+    body = html_response(conn, 200)
+
+    # the response is just the new row, not the whole page
+    assert body =~ ~s(class="item-row")
+    assert body =~ "Oat   milk"
+    refute body =~ "pearview"
+
+    assert [%Item{} = item] = Repo.all(Item)
+    assert item.name == "  Oat   milk "
+    assert item.normalized_name == "oat milk"
+    assert item.status == :pending
+    assert item.section_id == nil
   end
 end
