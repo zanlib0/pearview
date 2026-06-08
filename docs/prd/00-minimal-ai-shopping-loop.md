@@ -142,9 +142,8 @@ nothing).
 - **Each item is a Masthead `.tick-box`** whose state mirrors `item.status`:
   - `pending` → unchecked box + plain name.
   - `checked` → checked box + name struck through.
-  - `not_available` → **no checkbox**, name struck through. No status tag/stamp;
-    the strikethrough alone marks it (distinguished from `checked` by the absence
-    of a box).
+  - `not_available` → unchecked box + name struck through. No status tag/stamp;
+    the strikethrough alone marks it.
 - **No rules between rows** — row padding carries the vertical rhythm; the list
   is a ruleless column. Rows keep a comfortable touch target (`min-height`).
 - **Masthead anatomy:** a `<label>` wraps the bare `<input class="tick-box">`
