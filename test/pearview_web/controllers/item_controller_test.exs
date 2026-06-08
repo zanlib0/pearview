@@ -18,7 +18,7 @@ defmodule PearviewWeb.ItemControllerTest do
     assert body =~ ~s(class="tick-box")
     # the checked item renders a checked box
     assert body =~ "checked"
-    # the not-available item is marked with a cancel-stamp
-    assert body =~ "not available"
+    # the not-available item renders struck through with no checkbox
+    assert body =~ "-struck"
   end
 end

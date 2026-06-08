@@ -27,10 +27,9 @@
 .item-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
-  min-height: var(--space-11);
-  padding: var(--space-3) var(--space-1);
+  min-height: var(--space-8);
+  padding: var(--space-1) 0;
 }
 
 /* The tick-box and item name flow inline inside .item-label; the natural
