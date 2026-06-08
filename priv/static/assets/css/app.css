@@ -17,6 +17,23 @@
   margin: var(--space-8) 0 var(--space-4);
 }
 
+/* Operator add-item form: a full-width entry field with the stamp button
+ * beneath it, comfortable to reach one-handed on a phone. */
+.add-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-6) 0;
+}
+
+.add-item-field {
+  margin: 0;
+}
+
+.add-item .stamp-button {
+  align-self: flex-start;
+}
+
 /* The flat shopping list. Hairline-ruled rows with generous touch targets. */
 .item-list {
   list-style: none;
@@ -49,4 +66,10 @@
 .empty-note {
   margin-top: var(--space-6);
   color: var(--ink-2);
+}
+
+/* Once the list holds a row — including one just appended by HTMX — the
+ * "nothing yet" note has nothing to say. */
+#item-list:has(.item-row) ~ .empty-note {
+  display: none;
 }

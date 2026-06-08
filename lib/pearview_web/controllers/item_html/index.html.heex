@@ -8,18 +8,31 @@
 
   <h1 class="t-heading page-heading">Shopping list</h1>
 
-  <ul :if={@items != []} class="item-list">
-    <li :for={item <- @items} class="item-row">
-      <label class="item-label">
-        <input
-          class="tick-box"
-          type="checkbox"
-          checked={item.status == :checked}
-        />
-        <span class={["item-name", item.status == :not_available && "-struck"]}>{item.name}</span>
-      </label>
-    </li>
+  <form
+    class="add-item"
+    hx-post={~p"/items"}
+    hx-target="#item-list"
+    hx-swap="beforeend"
+    hx-on::after-request="if (event.detail.successful) this.reset()"
+  >
+    <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+    <div class="form-field add-item-field">
+      <label class="label" for="item_name">Add an item</label>
+      <input
+        class="input"
+        id="item_name"
+        name="item[name]"
+        type="text"
+        autocomplete="off"
+        required
+      />
+    </div>
+    <button class="stamp-button -accent" type="submit">Add</button>
+  </form>
+
+  <ul id="item-list" class="item-list">
+    <.item_row :for={item <- @items} item={item} />
   </ul>
 
-  <p :if={@items == []} class="empty-note t-body">Nothing on the list yet.</p>
+  <p class="empty-note t-body">Nothing on the list yet.</p>
 </main>

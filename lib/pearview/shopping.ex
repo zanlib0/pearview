@@ -21,4 +21,31 @@ defmodule Pearview.Shopping do
     |> order_by(asc: :inserted_at, asc: :id)
     |> Repo.all()
   end
+
+  @doc """
+  Adds an item to the shared list from a raw name typed by the Operator.
+
+  The `name` is stored verbatim; `normalized_name` is derived from it (see
+  `normalize_name/1`). New items start `pending` and uncategorised
+  (`section_id` nil) — the Shopper view assigns a Section in a later slice.
+  """
+  def add_item(attrs) when is_map(attrs) do
+    name = Map.get(attrs, "name", "")
+
+    %Item{}
+    |> Item.changeset(%{name: name, normalized_name: normalize_name(name)})
+    |> Repo.insert()
+  end
+
+  @doc """
+  Derives an Item's `normalized_name` (the categorisation cache key) from raw
+  text: lowercased, with internal whitespace collapsed to single spaces and the
+  ends trimmed.
+  """
+  def normalize_name(name) when is_binary(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/\s+/u, " ")
+    |> String.trim()
+  end
 end

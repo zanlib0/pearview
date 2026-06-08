@@ -18,6 +18,7 @@ defmodule PearviewWeb.Router do
     pipe_through :browser
 
     get "/", ItemController, :index
+    post "/items", ItemController, :create
   end
 
   # Other scopes may use custom stacks.
