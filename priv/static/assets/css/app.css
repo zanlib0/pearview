@@ -128,19 +128,17 @@
 }
 
 /* Shopper view: route-ordered, grouped list.
- * Read-only in this slice — tap actions (check-off) arrive in slice #5. */
+ * Tap actions (check-off) arrive in slice #5. */
 .route-section {
-  margin-top: var(--space-8);
+  margin-top: var(--space-5);
 }
 
 .route-section + .route-section {
-  border-top: var(--rule-1) solid var(--rule);
-  padding-top: var(--space-8);
-  margin-top: 0;
+  margin-top: var(--space-4);
 }
 
 .section-heading {
-  margin: 0 0 var(--space-3);
+  margin: 0 0 var(--space-1);
 }
 
 .shopper-list {
@@ -149,12 +147,16 @@
   padding: 0;
 }
 
-/* Large touch target so the Shopper can tap items one-handed. */
 .shopper-item {
-  min-height: var(--space-10);
   display: flex;
   align-items: center;
-  padding: var(--space-2) 0;
-  border-bottom: var(--rule-1) solid var(--rule-soft);
-  color: var(--ink);
+}
+
+.shopper-item label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--space-8);
+  width: 100%;
+  cursor: pointer;
 }

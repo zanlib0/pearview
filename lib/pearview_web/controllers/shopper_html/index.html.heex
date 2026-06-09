@@ -14,7 +14,12 @@
       </h2>
       <ul class="shopper-list">
         <%= for item <- items do %>
-          <li class="shopper-item t-body">{item.name}</li>
+          <li class="shopper-item">
+            <label>
+              <input class="tick-box" type="checkbox" />
+              <span class="t-body">{item.name}</span>
+            </label>
+          </li>
         <% end %>
       </ul>
     </section>
