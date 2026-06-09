@@ -38,31 +38,36 @@ _Avoid_: path, layout.
 
 ### The trip
 
-**Session**:
+**Trip**:
 One shopping trip's worth of list. Moves through states: **open** (being filled
 at home, no store chosen yet), **shopping** (store picked, route-ordered, active),
-**closed** (trip finished). There is always exactly one open Session for the
+**ended** (shopping done). The Shopper's **End trip** action ends the current
+Trip and opens the next one. There is always exactly one open Trip for the
 Operator to add to.
-_Avoid_: trip, list, cart.
+_Avoid_: session, list, cart.
 
 **Item**:
 One thing to buy, as typed by the Operator. Has a raw name, a normalized name
 (the cache key), an assigned Section (once categorised), and a status:
-**pending**, **checked**, **not_available**, or **deleted**.
+**pending**, **checked**, or **not_available**. Removing an Item from the list
+is deletion, not a status.
 _Avoid_: product, entry, line.
 
 **Carryover**:
-On closing a Session, re-creating its unbought items (status not_available, and
-optionally still-pending) in the next open Session so they aren't lost.
+On ending a Trip, its unbought items (not_available and still-pending) remain
+wanted and appear in the next open Trip. A not_available mark records that
+trip's stock, so it does not persist into the next Trip.
 _Avoid_: rollover, leftover.
 
 ### AI categorisation
 
 **Categorization**:
 A row in the cache/override table keyed on (Store, normalized item name) → Section,
-with a source of **ai** or **user**. A cache hit is free and instant; only new
-items hit the LLM. A user correction (source=user) always wins and is never
-overwritten by AI.
+with a source of **ai** or **user**. A cache hit is free and instant; only
+never-seen names hit the LLM. A Categorization may also record that the AI
+could not place a name ("unplaced"); such items stay in Other and are not
+re-asked — renaming the item is the retry. A user correction (source=user)
+always wins and is never overwritten by AI.
 _Avoid_: classification, mapping, label.
 
 **Normalized name**:
