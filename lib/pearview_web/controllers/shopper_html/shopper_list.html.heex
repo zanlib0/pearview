@@ -1,0 +1,12 @@
+<%= for {head, items} <- @groups do %>
+  <section class="route-section">
+    <h2 class="section-heading t-eyebrow">
+      {if head == :other, do: "Other", else: head.name}
+    </h2>
+    <ul class="shopper-list">
+      <.shopper_item :for={item <- items} item={item} />
+    </ul>
+  </section>
+<% end %>
+
+<p :if={@groups == []} class="empty-note t-body">Nothing on the list yet.</p>

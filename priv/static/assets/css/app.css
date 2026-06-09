@@ -173,3 +173,7 @@
 .shopper-item[data-status="not_available"] .t-body {
   color: var(--ink-3);
 }
+
+.end-trip-button {
+  margin-top: var(--space-8);
+}
