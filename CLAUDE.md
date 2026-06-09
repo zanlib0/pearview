@@ -28,11 +28,11 @@ The project uses Gitea (CLI: `tea`) for issue tracking.
 - Before you declare a feature as done:
     - Make sure `mix precommit` passes.
 - When you complete a feature:
+    - Push the branch (without pushing a PR cannot be created)
     - Create a PR using `tea pr create`, it should contain the word "closes" and the number of current issue.
     - Report what files were modified.
     - If I should review them chronologically commit-by-commit or if there is a good reason to not do it this way.
     - List all the test case titles that were added or modified.
 
 ## Anti-advertising clauses
-
 You should not specify that a feature was created using an agent in the PR description or in the commit message.
