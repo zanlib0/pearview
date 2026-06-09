@@ -17,6 +17,12 @@ config :pearview, PearviewWeb.Endpoint,
   secret_key_base: "nEEtGzXBmaVwMuFivLyCNw4x6y2xSVZLGc3ojDQStbf03kkFwdl0OQZa/7FfUZa6",
   server: false
 
+# Route all OpenRouter calls through Req.Test so tests never hit the network,
+# and pin a known API key so request-shape assertions are deterministic.
+config :pearview, Pearview.AI,
+  api_key: "test-openrouter-key",
+  req_options: [plug: {Req.Test, Pearview.AI}]
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 
