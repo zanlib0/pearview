@@ -11,6 +11,13 @@ config :pearview,
   ecto_repos: [Pearview.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# AI categorisation via OpenRouter (OpenAI-compatible). The API key is read from
+# OPENROUTER_API_KEY at call time; the model can be overridden with the
+# OPENROUTER_MODEL env var. See `Pearview.AI`.
+config :pearview, Pearview.AI,
+  base_url: "https://openrouter.ai/api/v1",
+  model: "deepseek/deepseek-v4-flash"
+
 # Configure the endpoint
 config :pearview, PearviewWeb.Endpoint,
   url: [host: "localhost"],

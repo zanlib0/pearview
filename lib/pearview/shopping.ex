@@ -11,7 +11,7 @@ defmodule Pearview.Shopping do
   import Ecto.Query, warn: false
 
   alias Pearview.Repo
-  alias Pearview.Shopping.{Item, Section}
+  alias Pearview.Shopping.{CategorizeUncategorized, Item, Section}
 
   @doc """
   Returns the shopping list grouped for the Shopper view: a list of
@@ -48,6 +48,13 @@ defmodule Pearview.Shopping do
   end
 
   @doc """
+  Resolves every uncategorised Item against the store's Route on Shopper-view
+  open — cache first, LLM second. Delegates to
+  `Pearview.Shopping.CategorizeUncategorized`; see that module for the rules.
+  """
+  defdelegate categorize_uncategorized, to: CategorizeUncategorized, as: :call
+
+  @doc """
   Returns every Item on the shared list, in insertion order.
   """
   def list_items do
@@ -78,14 +85,17 @@ defmodule Pearview.Shopping do
 
   @doc """
   Renames an existing item from a raw name typed by the Operator, re-deriving
-  `normalized_name` from the new text (see `normalize_name/1`). Other fields are
-  untouched.
+  `normalized_name` from the new text (see `normalize_name/1`) and **resetting
+  `section_id` to nil** so the item re-resolves on the next Shopper-view open.
+
+  Renaming is the retry button: an item's placement is always the placement of
+  its current normalized name (ADR-0002 rule 5). Status is untouched.
   """
   def update_item(%Item{} = item, attrs) when is_map(attrs) do
     name = Map.get(attrs, "name", item.name)
 
     item
-    |> Item.changeset(%{name: name, normalized_name: normalize_name(name)})
+    |> Item.changeset(%{name: name, normalized_name: normalize_name(name), section_id: nil})
     |> Repo.update()
   end
 
