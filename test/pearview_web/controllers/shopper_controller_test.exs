@@ -117,6 +117,44 @@ defmodule PearviewWeb.ShopperControllerTest do
     refute body =~ ">Other<"
   end
 
+  describe "POST /shopper/trip/end" do
+    test "deletes checked items from the list", %{conn: conn} do
+      Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
+      Shopping.add_item(%{"name" => "Bread"})
+
+      conn = post(conn, ~p"/shopper/trip/end")
+      body = html_response(conn, 200)
+
+      refute body =~ "Milk"
+      assert body =~ "Bread"
+    end
+
+    test "resets not_available items so they appear as pending", %{conn: conn} do
+      na = Repo.insert!(%Item{name: "Eggs", normalized_name: "eggs", status: :not_available})
+
+      post(conn, ~p"/shopper/trip/end")
+
+      assert Repo.get!(Item, na.id).status == :pending
+    end
+
+    test "returns the list fragment without a full page reload", %{conn: conn} do
+      conn = post(conn, ~p"/shopper/trip/end")
+      body = html_response(conn, 200)
+
+      refute body =~ "<html"
+      refute body =~ "pearview"
+    end
+
+    test "returns the empty-state note when nothing remains", %{conn: conn} do
+      Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
+
+      conn = post(conn, ~p"/shopper/trip/end")
+      body = html_response(conn, 200)
+
+      assert body =~ "Nothing on the list yet."
+    end
+  end
+
   describe "PATCH /shopper/items/:id/cycle" do
     test "cycles a pending item to checked and returns its fragment", %{conn: conn} do
       {:ok, item} = Shopping.add_item(%{"name" => "Milk"})

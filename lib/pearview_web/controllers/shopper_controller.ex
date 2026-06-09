@@ -15,4 +15,12 @@ defmodule PearviewWeb.ShopperController do
     |> put_root_layout(html: false)
     |> render(:shopper_item, item: item)
   end
+
+  def end_trip(conn, _params) do
+    Shopping.end_trip()
+
+    conn
+    |> put_root_layout(html: false)
+    |> render(:shopper_list, groups: Shopping.list_grouped_for_shopper())
+  end
 end

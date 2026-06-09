@@ -109,6 +109,18 @@ defmodule Pearview.Shopping do
   end
 
   @doc """
+  Ends the current trip:
+  - Hard-deletes all checked items (they were bought).
+  - Resets not_available items to pending (carryover — the mark is stale).
+  - Leaves pending items untouched (still wanted).
+  """
+  def end_trip do
+    Repo.delete_all(from(i in Item, where: i.status == :checked))
+    Repo.update_all(from(i in Item, where: i.status == :not_available), set: [status: :pending])
+    :ok
+  end
+
+  @doc """
   Derives an Item's `normalized_name` (the categorisation cache key) from raw
   text: lowercased, with internal whitespace collapsed to single spaces and the
   ends trimmed.

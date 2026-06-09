@@ -7,16 +7,16 @@
     </nav>
   </header>
 
-  <%= for {head, items} <- @groups do %>
-    <section class="route-section">
-      <h2 class="section-heading t-eyebrow">
-        {if head == :other, do: "Other", else: head.name}
-      </h2>
-      <ul class="shopper-list">
-        <.shopper_item :for={item <- items} item={item} />
-      </ul>
-    </section>
-  <% end %>
+  <div id="shopper-list">
+    <.shopper_list groups={@groups} />
+  </div>
 
-  <p :if={@groups == []} class="empty-note t-body">Nothing on the list yet.</p>
+  <button
+    class="stamp-button -accent end-trip-button"
+    hx-post={~p"/shopper/trip/end"}
+    hx-target="#shopper-list"
+    hx-swap="innerHTML"
+  >
+    Done shopping
+  </button>
 </main>

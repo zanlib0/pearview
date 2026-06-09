@@ -226,6 +226,52 @@ defmodule Pearview.ShoppingTest do
     end
   end
 
+  describe "end_trip/0" do
+    test "hard-deletes all checked items" do
+      Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
+      Repo.insert!(%Item{name: "Eggs", normalized_name: "eggs", status: :checked})
+      {:ok, pending} = Shopping.add_item(%{"name" => "Bread"})
+
+      Shopping.end_trip()
+
+      remaining = Shopping.list_items() |> Enum.map(& &1.id)
+      assert pending.id in remaining
+      assert length(remaining) == 1
+    end
+
+    test "resets not_available items to pending" do
+      item = Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :not_available})
+
+      Shopping.end_trip()
+
+      assert Repo.get!(Item, item.id).status == :pending
+    end
+
+    test "leaves pending items untouched" do
+      {:ok, item} = Shopping.add_item(%{"name" => "Bread"})
+
+      Shopping.end_trip()
+
+      assert Repo.get!(Item, item.id).status == :pending
+    end
+
+    test "handles a mix: deletes checked, resets not_available, preserves pending" do
+      checked = Repo.insert!(%Item{name: "A", normalized_name: "a", status: :checked})
+      na = Repo.insert!(%Item{name: "B", normalized_name: "b", status: :not_available})
+      {:ok, pending} = Shopping.add_item(%{"name" => "C"})
+
+      Shopping.end_trip()
+
+      assert Repo.get(Item, checked.id) == nil
+      assert Repo.get!(Item, na.id).status == :pending
+      assert Repo.get!(Item, pending.id).status == :pending
+    end
+
+    test "returns :ok" do
+      assert Shopping.end_trip() == :ok
+    end
+  end
+
   describe "normalize_name/1" do
     test "lowercases, trims, and collapses internal whitespace" do
       assert Shopping.normalize_name("  Oat   MILK ") == "oat milk"

@@ -25,6 +25,7 @@ defmodule PearviewWeb.Router do
 
     get "/shopper", ShopperController, :index
     patch "/shopper/items/:id/cycle", ShopperController, :cycle
+    post "/shopper/trip/end", ShopperController, :end_trip
   end
 
   # Other scopes may use custom stacks.
