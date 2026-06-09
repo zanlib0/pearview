@@ -36,7 +36,10 @@ defmodule Pearview.AI do
   def categorize(names, sections) when is_list(names) and is_list(sections) do
     section_names = Enum.map(sections, & &1.name)
 
-    case Req.post(req(), url: "/chat/completions", json: request_body(names, sections, section_names)) do
+    case Req.post(req(),
+           url: "/chat/completions",
+           json: request_body(names, sections, section_names)
+         ) do
       {:ok, %Req.Response{status: 200, body: body}} ->
         parse(body, names, section_names)
 
@@ -73,7 +76,8 @@ defmodule Pearview.AI do
           properties: %{
             assignments: %{
               type: "array",
-              description: "One entry per item you can confidently place. Omit items that fit no section.",
+              description:
+                "One entry per item you can confidently place. Omit items that fit no section.",
               items: %{
                 type: "object",
                 properties: %{
@@ -123,7 +127,8 @@ defmodule Pearview.AI do
 
   defp parse(%{"choices" => [%{"message" => message} | _]}, names, section_names) do
     with {:ok, args_json} <- tool_arguments(message),
-         {:ok, %{"assignments" => assignments}} when is_list(assignments) <- Jason.decode(args_json) do
+         {:ok, %{"assignments" => assignments}} when is_list(assignments) <-
+           Jason.decode(args_json) do
       valid_sections = MapSet.new(section_names)
       requested = MapSet.new(names)
 

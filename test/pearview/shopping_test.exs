@@ -246,8 +246,13 @@ defmodule Pearview.ShoppingTest do
   describe "categorize_uncategorized/0" do
     setup do
       store = Repo.insert!(%Store{name: "Cache Store"})
-      produce = Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id, hints: "fruit"})
-      dairy = Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id, hints: "milk"})
+
+      produce =
+        Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id, hints: "fruit"})
+
+      dairy =
+        Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id, hints: "milk"})
+
       %{store: store, produce: produce, dairy: dairy}
     end
 

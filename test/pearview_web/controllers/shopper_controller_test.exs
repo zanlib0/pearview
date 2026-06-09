@@ -3,12 +3,39 @@ defmodule PearviewWeb.ShopperControllerTest do
 
   alias Pearview.Repo
   alias Pearview.Shopping
-  alias Pearview.Shopping.{Item, Section, Store}
+  alias Pearview.Shopping.{Categorization, Item, Section, Store}
+
+  # A well-formed OpenAI-style forced tool call wrapping the given assignments.
+  defp tool_call_response(assignments) do
+    %{
+      "choices" => [
+        %{
+          "message" => %{
+            "tool_calls" => [
+              %{
+                "function" => %{
+                  "name" => "categorize_items",
+                  "arguments" => Jason.encode!(%{"assignments" => assignments})
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  end
 
   setup do
     store = Repo.insert!(%Store{name: "Test Store"})
     produce = Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id})
     dairy = Repo.insert!(%Section{name: "Dairy & Eggs", position: 2, store_id: store.id})
+
+    # Default: the LLM places nothing, so uncategorised items stay in Other.
+    # Individual tests override this stub to assert placement or cache behaviour.
+    Req.Test.stub(Pearview.AI, fn conn ->
+      Req.Test.json(conn, tool_call_response([]))
+    end)
+
     %{store: store, produce: produce, dairy: dairy}
   end
 
@@ -115,6 +142,77 @@ defmodule PearviewWeb.ShopperControllerTest do
     body = html_response(conn, 200)
 
     refute body =~ ">Other<"
+  end
+
+  describe "GET /shopper categorisation on open" do
+    test "categorises uncategorised items and renders them under their section", %{
+      conn: conn,
+      dairy: dairy
+    } do
+      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+
+      Req.Test.stub(Pearview.AI, fn c ->
+        Req.Test.json(c, tool_call_response([%{"item" => "milk", "section" => "Dairy & Eggs"}]))
+      end)
+
+      conn = get(conn, ~p"/shopper")
+      body = html_response(conn, 200)
+
+      assert body =~ "Dairy &amp; Eggs"
+      assert body =~ "Milk"
+      refute body =~ ">Other<"
+      assert Repo.get!(Item, milk.id).section_id == dairy.id
+    end
+
+    test "leaves items the AI cannot place in the Other group", %{conn: conn} do
+      Shopping.add_item(%{"name" => "Obscure Widget"})
+
+      # default setup stub places nothing
+      conn = get(conn, ~p"/shopper")
+      body = html_response(conn, 200)
+
+      assert body =~ "Other"
+      assert body =~ "Obscure Widget"
+    end
+
+    test "resolves an already-cached name without calling the LLM", %{
+      conn: conn,
+      store: store,
+      produce: produce
+    } do
+      Repo.insert!(%Categorization{
+        store_id: store.id,
+        normalized_name: "bananas",
+        section_id: produce.id,
+        source: :ai
+      })
+
+      {:ok, bananas} = Shopping.add_item(%{"name" => "Bananas"})
+
+      Req.Test.stub(Pearview.AI, fn _c ->
+        raise "the LLM must not be called for a name already in the cache"
+      end)
+
+      conn = get(conn, ~p"/shopper")
+      body = html_response(conn, 200)
+
+      assert body =~ "Produce"
+      assert body =~ "Bananas"
+      assert Repo.get!(Item, bananas.id).section_id == produce.id
+    end
+
+    test "renders the list without crashing when the AI call errors", %{conn: conn} do
+      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+
+      Req.Test.stub(Pearview.AI, fn c -> Plug.Conn.send_resp(c, 500, "boom") end)
+
+      conn = get(conn, ~p"/shopper")
+      body = html_response(conn, 200)
+
+      assert body =~ "Other"
+      assert body =~ "Milk"
+      assert Repo.get!(Item, milk.id).section_id == nil
+    end
   end
 
   describe "POST /shopper/trip/end" do
