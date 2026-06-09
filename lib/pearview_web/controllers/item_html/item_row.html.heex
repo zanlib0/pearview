@@ -1,9 +1,16 @@
 <li id={"item-#{@item.id}"} class="item-row">
-  <label class="item-check">
+  <label
+    class="item-check"
+    hx-patch={~p"/items/#{@item.id}/cycle"}
+    hx-target={"#item-#{@item.id}"}
+    hx-swap="outerHTML"
+  >
     <input
       class="tick-box"
       type="checkbox"
       checked={@item.status == :checked}
+      tabindex="-1"
+      style="pointer-events:none"
     />
     <span class="_sr-only">Mark {@item.name}</span>
   </label>

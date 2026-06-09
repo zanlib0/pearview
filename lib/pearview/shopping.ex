@@ -90,10 +90,23 @@ defmodule Pearview.Shopping do
   end
 
   @doc """
-  Removes an item from the shared list. This is a hard delete (`Repo.delete`) —
-  Phase 1 has no soft-delete `deleted` status.
+  Removes an item from the shared list. This is a hard delete (`Repo.delete`)
   """
   def delete_item(%Item{} = item), do: Repo.delete(item)
+
+  @next_status %{pending: :checked, checked: :not_available, not_available: :pending}
+
+  @doc """
+  Advances an Item's status one step around the tri-state cycle:
+  pending → checked → not_available → pending.
+  """
+  def cycle_item_status(%Item{} = item) do
+    next = Map.fetch!(@next_status, item.status)
+
+    item
+    |> Item.changeset(%{status: next})
+    |> Repo.update()
+  end
 
   @doc """
   Derives an Item's `normalized_name` (the categorisation cache key) from raw

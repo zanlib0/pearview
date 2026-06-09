@@ -45,8 +45,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--space-8);
-  padding: var(--space-1) 0;
 }
 
 /* The tick-box carries the item name as its (visually hidden) accessible name;
@@ -127,8 +125,7 @@
   display: none;
 }
 
-/* Shopper view: route-ordered, grouped list.
- * Tap actions (check-off) arrive in slice #5. */
+/* Shopper view: route-ordered grouped list with tap-to-cycle status. */
 .route-section {
   margin-top: var(--space-5);
 }
@@ -147,16 +144,32 @@
   padding: 0;
 }
 
+/* The entire row is the tap target — large enough for one-handed use. */
 .shopper-item {
   display: flex;
   align-items: center;
+  cursor: pointer;
 }
 
 .shopper-item label {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--space-8);
   width: 100%;
   cursor: pointer;
+}
+
+/* The checkbox is visual-only; the HTMX patch drives state. */
+.shopper-item .tick-box {
+  pointer-events: none;
+}
+
+/* checked: struck name. not_available: struck name, muted — store didn't have it. */
+.shopper-item[data-status="checked"] .t-body,
+.shopper-item[data-status="not_available"] .t-body {
+  text-decoration: line-through;
+}
+
+.shopper-item[data-status="not_available"] .t-body {
+  color: var(--ink-3);
 }
