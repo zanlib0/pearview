@@ -45,8 +45,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--space-8);
-  padding: var(--space-1) 0;
 }
 
 /* The tick-box carries the item name as its (visually hidden) accessible name;
@@ -157,10 +155,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--space-10);
   width: 100%;
   cursor: pointer;
-  padding: var(--space-1) 0;
 }
 
 /* The checkbox is visual-only; the HTMX patch drives state. */

@@ -90,8 +90,7 @@ defmodule Pearview.Shopping do
   end
 
   @doc """
-  Removes an item from the shared list. This is a hard delete (`Repo.delete`) —
-  Phase 1 has no soft-delete `deleted` status.
+  Removes an item from the shared list. This is a hard delete (`Repo.delete`)
   """
   def delete_item(%Item{} = item), do: Repo.delete(item)
 
