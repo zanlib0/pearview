@@ -1,0 +1,29 @@
+<main class="page">
+  <header class="press-masthead">
+    <a class="title" href={~p"/"}>pearview</a>
+    <nav class="nav">
+      <a href={~p"/"}>list</a>
+      <a href={~p"/shopper"} aria-current="page">shop</a>
+    </nav>
+  </header>
+
+  <%= for {head, items} <- @groups do %>
+    <section class="route-section">
+      <h2 class="section-heading t-eyebrow">
+        {if head == :other, do: "Other", else: head.name}
+      </h2>
+      <ul class="shopper-list">
+        <%= for item <- items do %>
+          <li class="shopper-item">
+            <label>
+              <input class="tick-box" type="checkbox" />
+              <span class="t-body">{item.name}</span>
+            </label>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <p :if={@groups == []} class="empty-note t-body">Nothing on the list yet.</p>
+</main>

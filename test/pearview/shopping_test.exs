@@ -2,7 +2,7 @@ defmodule Pearview.ShoppingTest do
   use Pearview.DataCase, async: true
 
   alias Pearview.Shopping
-  alias Pearview.Shopping.Item
+  alias Pearview.Shopping.{Item, Section, Store}
 
   describe "list_items/0" do
     test "returns the persisted items in insertion order" do
@@ -81,6 +81,121 @@ defmodule Pearview.ShoppingTest do
 
       assert {:ok, _deleted} = Shopping.delete_item(item)
       assert Repo.get(Item, item.id) == nil
+    end
+  end
+
+  describe "list_grouped_for_shopper/0" do
+    setup do
+      store = Repo.insert!(%Store{name: "Test Store"})
+      dairy = Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id})
+      produce = Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id})
+      %{store: store, dairy: dairy, produce: produce}
+    end
+
+    test "returns sections in route (position) order with Other pinned last", %{
+      dairy: dairy,
+      produce: produce
+    } do
+      Repo.insert!(%Item{
+        name: "Milk",
+        normalized_name: "milk",
+        status: :pending,
+        section_id: dairy.id
+      })
+
+      Repo.insert!(%Item{
+        name: "Bananas",
+        normalized_name: "bananas",
+        status: :pending,
+        section_id: produce.id
+      })
+
+      Repo.insert!(%Item{name: "Lightbulbs", normalized_name: "lightbulbs", status: :pending})
+
+      groups = Shopping.list_grouped_for_shopper()
+
+      # Match by id — pinning the full struct would fail because the query
+      # returns structs with preloaded items, which differ from the setup stubs.
+      assert [{%{id: p_id}, _}, {%{id: d_id}, _}, {:other, _}] = groups
+      assert p_id == produce.id
+      assert d_id == dairy.id
+    end
+
+    test "items within each section are ordered by insertion time", %{dairy: dairy} do
+      %{id: first_id} =
+        Repo.insert!(%Item{
+          name: "Milk",
+          normalized_name: "milk",
+          status: :pending,
+          section_id: dairy.id
+        })
+
+      %{id: second_id} =
+        Repo.insert!(%Item{
+          name: "Cheese",
+          normalized_name: "cheese",
+          status: :pending,
+          section_id: dairy.id
+        })
+
+      [{%{id: s_id}, items}] = Shopping.list_grouped_for_shopper()
+
+      assert s_id == dairy.id
+      assert [^first_id, ^second_id] = Enum.map(items, & &1.id)
+    end
+
+    test "items with nil section_id appear in the Other bucket, not in any section", %{
+      produce: produce
+    } do
+      Repo.insert!(%Item{
+        name: "Bananas",
+        normalized_name: "bananas",
+        status: :pending,
+        section_id: produce.id
+      })
+
+      Repo.insert!(%Item{name: "Capers", normalized_name: "capers", status: :pending})
+
+      groups = Shopping.list_grouped_for_shopper()
+
+      assert [{%{id: p_id}, produce_items}, {:other, other_items}] = groups
+      assert p_id == produce.id
+      assert Enum.map(produce_items, & &1.name) == ["Bananas"]
+      assert Enum.map(other_items, & &1.name) == ["Capers"]
+    end
+
+    test "sections with no items are omitted from the result", %{dairy: dairy} do
+      Repo.insert!(%Item{
+        name: "Milk",
+        normalized_name: "milk",
+        status: :pending,
+        section_id: dairy.id
+      })
+
+      groups = Shopping.list_grouped_for_shopper()
+
+      names =
+        Enum.map(groups, fn {head, _} -> if head == :other, do: "Other", else: head.name end)
+
+      refute "Produce" in names
+      assert "Dairy" in names
+    end
+
+    test "returns an empty list when there are no items" do
+      assert Shopping.list_grouped_for_shopper() == []
+    end
+
+    test "omits the Other bucket when all items have a section", %{produce: produce} do
+      Repo.insert!(%Item{
+        name: "Bananas",
+        normalized_name: "bananas",
+        status: :pending,
+        section_id: produce.id
+      })
+
+      groups = Shopping.list_grouped_for_shopper()
+
+      refute Enum.any?(groups, fn {head, _} -> head == :other end)
     end
   end
 

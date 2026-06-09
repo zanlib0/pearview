@@ -126,3 +126,37 @@
 #item-list:has(.item-row) ~ .empty-note {
   display: none;
 }
+
+/* Shopper view: route-ordered, grouped list.
+ * Tap actions (check-off) arrive in slice #5. */
+.route-section {
+  margin-top: var(--space-5);
+}
+
+.route-section + .route-section {
+  margin-top: var(--space-4);
+}
+
+.section-heading {
+  margin: 0 0 var(--space-1);
+}
+
+.shopper-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shopper-item {
+  display: flex;
+  align-items: center;
+}
+
+.shopper-item label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--space-8);
+  width: 100%;
+  cursor: pointer;
+}

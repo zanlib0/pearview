@@ -11,7 +11,41 @@ defmodule Pearview.Shopping do
   import Ecto.Query, warn: false
 
   alias Pearview.Repo
-  alias Pearview.Shopping.Item
+  alias Pearview.Shopping.{Item, Section}
+
+  @doc """
+  Returns the shopping list grouped for the Shopper view: a list of
+  `{%Section{}, items}` tuples in route (position) order, each containing that
+  section's items ordered by insertion time, followed by a single
+  `{:other, items}` tuple (pinned last) for items that have no section yet.
+  Empty sections and an empty Other bucket are omitted.
+  """
+  def list_grouped_for_shopper do
+    item_query = from(i in Item, order_by: [asc: i.inserted_at, asc: i.id])
+
+    sections =
+      Section
+      |> order_by(asc: :position)
+      |> preload(items: ^item_query)
+      |> Repo.all()
+
+    other_items =
+      Item
+      |> where([i], is_nil(i.section_id))
+      |> order_by(asc: :inserted_at, asc: :id)
+      |> Repo.all()
+
+    section_groups =
+      sections
+      |> Enum.map(&{&1, &1.items})
+      |> Enum.reject(fn {_s, items} -> items == [] end)
+
+    if other_items == [] do
+      section_groups
+    else
+      section_groups ++ [{:other, other_items}]
+    end
+  end
 
   @doc """
   Returns every Item on the shared list, in insertion order.

@@ -9,6 +9,8 @@
 alias Pearview.Repo
 alias Pearview.Shopping.{Item, Section, Store}
 
+import Ecto.Query
+
 # Start clean so re-seeding is idempotent.
 Repo.delete_all(Item)
 Repo.delete_all(Section)
@@ -45,22 +47,28 @@ sections
   })
 end)
 
-# A few Items on the shared list, in a mix of states so the list view shows
-# each one. Uncategorised (no section yet) — categorisation runs in the Shopper
-# view in a later phase.
+# Look up the sections we just created so we can assign section_ids by hand.
+# This stubs the AI categoriser (slice #6): most items are pre-categorised,
+# a couple are left nil so the Shopper view's Other bucket is exercised.
+section = fn name ->
+  Repo.one!(from s in Section, where: s.name == ^name and s.store_id == ^store.id)
+end
+
 [
-  {"Bananas", :pending},
-  {"Oat milk", :pending},
-  {"Sourdough loaf", :checked},
-  {"Free-range eggs", :pending},
-  {"Spaghetti", :checked},
-  {"Capers", :not_available},
-  {"Bin bags", :pending}
+  {"Bananas", :pending, section.("Produce")},
+  {"Oat milk", :pending, section.("Dairy & Eggs")},
+  {"Sourdough loaf", :checked, section.("Bakery")},
+  {"Free-range eggs", :pending, section.("Dairy & Eggs")},
+  {"Spaghetti", :checked, section.("Tinned & Dry Goods")},
+  {"Capers", :not_available, nil},
+  {"Bin bags", :pending, section.("Household")},
+  {"Lightbulbs", :pending, nil}
 ]
-|> Enum.each(fn {name, status} ->
+|> Enum.each(fn {name, status, sec} ->
   Repo.insert!(%Item{
     name: name,
     normalized_name: normalize.(name),
-    status: status
+    status: status,
+    section_id: sec && sec.id
   })
 end)
