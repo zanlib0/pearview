@@ -46,6 +46,19 @@ defmodule PearviewWeb.ItemController do
   end
 
   @doc """
+  Cycles an item's status (pending → checked → not_available → pending) and
+  returns its updated row as an HTML fragment so HTMX can swap it in place.
+  """
+  def cycle(conn, %{"id" => id}) do
+    item = Shopping.get_item!(id)
+    {:ok, item} = Shopping.cycle_item_status(item)
+
+    conn
+    |> put_root_layout(html: false)
+    |> render(:item_row, item: item)
+  end
+
+  @doc """
   Hard-deletes an item and returns an empty body; HTMX removes its row from the
   list (no full reload).
   """

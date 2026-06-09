@@ -82,6 +82,41 @@ defmodule PearviewWeb.ItemControllerTest do
     assert Repo.get(Item, item.id) == nil
   end
 
+  describe "PATCH /items/:id/cycle" do
+    test "cycles a pending item to checked and returns its row fragment", %{conn: conn} do
+      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+
+      conn = patch(conn, ~p"/items/#{item.id}/cycle")
+      body = html_response(conn, 200)
+
+      assert body =~ ~s(class="item-row")
+      assert body =~ "checked"
+      refute body =~ "pearview"
+      assert Repo.get!(Item, item.id).status == :checked
+    end
+
+    test "cycles a checked item to not_available", %{conn: conn} do
+      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :checked})
+
+      conn = patch(conn, ~p"/items/#{item.id}/cycle")
+      body = html_response(conn, 200)
+
+      assert body =~ "-struck"
+      assert Repo.get!(Item, item.id).status == :not_available
+    end
+
+    test "cycles a not_available item back to pending", %{conn: conn} do
+      item =
+        Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :not_available})
+
+      conn = patch(conn, ~p"/items/#{item.id}/cycle")
+      body = html_response(conn, 200)
+
+      refute body =~ "checked"
+      assert Repo.get!(Item, item.id).status == :pending
+    end
+  end
+
   test "GET / renders each item's inline name field and delete control", %{conn: conn} do
     item = Repo.insert!(%Item{name: "Bananas", normalized_name: "bananas", status: :pending})
 
