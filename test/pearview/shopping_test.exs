@@ -2,7 +2,41 @@ defmodule Pearview.ShoppingTest do
   use Pearview.DataCase, async: true
 
   alias Pearview.Shopping
-  alias Pearview.Shopping.{Item, Section, Store}
+  alias Pearview.Shopping.{Categorization, Item, Section, Store}
+
+  # A well-formed OpenAI-style forced tool call wrapping the given assignments.
+  defp tool_call_response(assignments) do
+    %{
+      "choices" => [
+        %{
+          "message" => %{
+            "tool_calls" => [
+              %{
+                "function" => %{
+                  "name" => "categorize_items",
+                  "arguments" => Jason.encode!(%{"assignments" => assignments})
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  end
+
+  # Stub OpenRouter to return the given assignments.
+  defp stub_ai(assignments) do
+    Req.Test.stub(Pearview.AI, fn conn ->
+      Req.Test.json(conn, tool_call_response(assignments))
+    end)
+  end
+
+  # Fail loudly if the LLM is hit at all (used to prove cache-only resolution).
+  defp refute_ai_called do
+    Req.Test.stub(Pearview.AI, fn _conn ->
+      raise "the LLM must not be called when every name resolves from cache"
+    end)
+  end
 
   describe "list_items/0" do
     test "returns the persisted items in insertion order" do
@@ -57,13 +91,23 @@ defmodule Pearview.ShoppingTest do
       assert Repo.get(Item, item.id).normalized_name == "oat milk"
     end
 
-    test "leaves status and section untouched when renaming" do
-      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :checked})
+    test "leaves status untouched but resets section_id so the item re-resolves" do
+      store = Repo.insert!(%Store{name: "Test Store"})
+      dairy = Repo.insert!(%Section{name: "Dairy", position: 1, store_id: store.id})
+
+      item =
+        Repo.insert!(%Item{
+          name: "milk",
+          normalized_name: "milk",
+          status: :checked,
+          section_id: dairy.id
+        })
 
       assert {:ok, updated} = Shopping.update_item(item, %{"name" => "oat milk"})
 
       assert updated.status == :checked
       assert updated.section_id == nil
+      assert Repo.get!(Item, item.id).section_id == nil
     end
 
     test "rejects a blank name and leaves the item unchanged" do
@@ -196,6 +240,149 @@ defmodule Pearview.ShoppingTest do
       groups = Shopping.list_grouped_for_shopper()
 
       refute Enum.any?(groups, fn {head, _} -> head == :other end)
+    end
+  end
+
+  describe "categorize_uncategorized/0" do
+    setup do
+      store = Repo.insert!(%Store{name: "Cache Store"})
+      produce = Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id, hints: "fruit"})
+      dairy = Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id, hints: "milk"})
+      %{store: store, produce: produce, dairy: dairy}
+    end
+
+    test "stamps items from a placed cache hit without calling the LLM", %{
+      store: store,
+      produce: produce
+    } do
+      Repo.insert!(%Categorization{
+        store_id: store.id,
+        normalized_name: "bananas",
+        section_id: produce.id,
+        source: :ai
+      })
+
+      {:ok, item} = Shopping.add_item(%{"name" => "Bananas"})
+      refute_ai_called()
+
+      assert Shopping.categorize_uncategorized() == :ok
+      assert Repo.get!(Item, item.id).section_id == produce.id
+    end
+
+    test "leaves items in Other for an unplaced cache hit without calling the LLM", %{
+      store: store
+    } do
+      Repo.insert!(%Categorization{
+        store_id: store.id,
+        normalized_name: "capers",
+        section_id: nil,
+        source: :ai
+      })
+
+      {:ok, item} = Shopping.add_item(%{"name" => "Capers"})
+      refute_ai_called()
+
+      assert Shopping.categorize_uncategorized() == :ok
+      assert Repo.get!(Item, item.id).section_id == nil
+    end
+
+    test "sends only never-seen names to the LLM, resolving cached ones for free", %{
+      store: store,
+      produce: produce,
+      dairy: dairy
+    } do
+      Repo.insert!(%Categorization{
+        store_id: store.id,
+        normalized_name: "bananas",
+        section_id: produce.id,
+        source: :ai
+      })
+
+      {:ok, bananas} = Shopping.add_item(%{"name" => "Bananas"})
+      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+
+      test_pid = self()
+
+      Req.Test.stub(Pearview.AI, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:ai_request, Jason.decode!(raw)})
+        Req.Test.json(conn, tool_call_response([%{"item" => "milk", "section" => "Dairy"}]))
+      end)
+
+      assert Shopping.categorize_uncategorized() == :ok
+
+      assert_received {:ai_request, body}
+      prompt = body["messages"] |> List.last() |> Map.get("content")
+      assert prompt =~ "milk"
+      refute prompt =~ "bananas"
+
+      assert Repo.get!(Item, bananas.id).section_id == produce.id
+      assert Repo.get!(Item, milk.id).section_id == dairy.id
+    end
+
+    test "writes through placed LLM answers to the cache and stamps the items", %{
+      store: store,
+      dairy: dairy
+    } do
+      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+      stub_ai([%{"item" => "milk", "section" => "Dairy"}])
+
+      assert Shopping.categorize_uncategorized() == :ok
+
+      assert Repo.get!(Item, milk.id).section_id == dairy.id
+
+      row = Repo.get_by!(Categorization, store_id: store.id, normalized_name: "milk")
+      assert row.section_id == dairy.id
+      assert row.source == :ai
+    end
+
+    test "writes an unplaced cache row for names the model omits, leaving them in Other", %{
+      store: store
+    } do
+      {:ok, widget} = Shopping.add_item(%{"name" => "Obscure Widget"})
+      stub_ai([])
+
+      assert Shopping.categorize_uncategorized() == :ok
+
+      assert Repo.get!(Item, widget.id).section_id == nil
+
+      row = Repo.get_by!(Categorization, store_id: store.id, normalized_name: "obscure widget")
+      assert row.section_id == nil
+      assert row.source == :ai
+    end
+
+    test "writes no cache rows and leaves items uncategorised on an LLM error", %{store: _store} do
+      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+      Req.Test.stub(Pearview.AI, fn conn -> Plug.Conn.send_resp(conn, 500, "boom") end)
+
+      assert Shopping.categorize_uncategorized() == :ok
+
+      assert Repo.get!(Item, milk.id).section_id == nil
+      assert Repo.all(Categorization) == []
+    end
+
+    test "re-adding a previously-known name resolves from cache without an LLM call", %{
+      store: store,
+      dairy: dairy
+    } do
+      # The cache row survives even though the original item was deleted (End trip).
+      Repo.insert!(%Categorization{
+        store_id: store.id,
+        normalized_name: "milk",
+        section_id: dairy.id,
+        source: :ai
+      })
+
+      {:ok, item} = Shopping.add_item(%{"name" => "Milk"})
+      refute_ai_called()
+
+      assert Shopping.categorize_uncategorized() == :ok
+      assert Repo.get!(Item, item.id).section_id == dairy.id
+    end
+
+    test "is a no-op when there are no uncategorised items" do
+      refute_ai_called()
+      assert Shopping.categorize_uncategorized() == :ok
     end
   end
 
