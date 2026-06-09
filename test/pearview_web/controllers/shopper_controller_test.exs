@@ -2,6 +2,7 @@ defmodule PearviewWeb.ShopperControllerTest do
   use PearviewWeb.ConnCase
 
   alias Pearview.Repo
+  alias Pearview.Shopping
   alias Pearview.Shopping.{Item, Section, Store}
 
   setup do
@@ -114,5 +115,47 @@ defmodule PearviewWeb.ShopperControllerTest do
     body = html_response(conn, 200)
 
     refute body =~ ">Other<"
+  end
+
+  describe "PATCH /shopper/items/:id/cycle" do
+    test "cycles a pending item to checked and returns its fragment", %{conn: conn} do
+      {:ok, item} = Shopping.add_item(%{"name" => "Milk"})
+
+      conn = patch(conn, ~p"/shopper/items/#{item.id}/cycle")
+      body = html_response(conn, 200)
+
+      assert body =~ ~s(id="shopper-item-#{item.id}")
+      assert body =~ "checked"
+      assert body =~ "Milk"
+    end
+
+    test "cycles a checked item to not_available", %{conn: conn} do
+      item = Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
+
+      conn = patch(conn, ~p"/shopper/items/#{item.id}/cycle")
+      body = html_response(conn, 200)
+
+      assert body =~ ~s(data-status="not_available")
+    end
+
+    test "cycles a not_available item back to pending", %{conn: conn} do
+      item =
+        Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :not_available})
+
+      conn = patch(conn, ~p"/shopper/items/#{item.id}/cycle")
+      body = html_response(conn, 200)
+
+      assert body =~ ~s(data-status="pending")
+    end
+
+    test "returns only the item fragment, not the full page", %{conn: conn} do
+      {:ok, item} = Shopping.add_item(%{"name" => "Milk"})
+
+      conn = patch(conn, ~p"/shopper/items/#{item.id}/cycle")
+      body = html_response(conn, 200)
+
+      refute body =~ "<html"
+      refute body =~ "pearview"
+    end
   end
 end

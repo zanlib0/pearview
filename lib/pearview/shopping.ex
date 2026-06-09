@@ -95,6 +95,20 @@ defmodule Pearview.Shopping do
   """
   def delete_item(%Item{} = item), do: Repo.delete(item)
 
+  @next_status %{pending: :checked, checked: :not_available, not_available: :pending}
+
+  @doc """
+  Advances an Item's status one step around the tri-state cycle:
+  pending → checked → not_available → pending.
+  """
+  def cycle_item_status(%Item{} = item) do
+    next = Map.fetch!(@next_status, item.status)
+
+    item
+    |> Item.changeset(%{status: next})
+    |> Repo.update()
+  end
+
   @doc """
   Derives an Item's `normalized_name` (the categorisation cache key) from raw
   text: lowercased, with internal whitespace collapsed to single spaces and the

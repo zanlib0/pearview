@@ -13,14 +13,7 @@
         {if head == :other, do: "Other", else: head.name}
       </h2>
       <ul class="shopper-list">
-        <%= for item <- items do %>
-          <li class="shopper-item">
-            <label>
-              <input class="tick-box" type="checkbox" />
-              <span class="t-body">{item.name}</span>
-            </label>
-          </li>
-        <% end %>
+        <.shopper_item :for={item <- items} item={item} />
       </ul>
     </section>
   <% end %>

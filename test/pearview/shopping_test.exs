@@ -199,6 +199,33 @@ defmodule Pearview.ShoppingTest do
     end
   end
 
+  describe "cycle_item_status/1" do
+    test "advances pending to checked" do
+      {:ok, item} = Shopping.add_item(%{"name" => "milk"})
+
+      assert {:ok, %{status: :checked}} = Shopping.cycle_item_status(item)
+    end
+
+    test "advances checked to not_available" do
+      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :checked})
+
+      assert {:ok, %{status: :not_available}} = Shopping.cycle_item_status(item)
+    end
+
+    test "advances not_available back to pending" do
+      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :not_available})
+
+      assert {:ok, %{status: :pending}} = Shopping.cycle_item_status(item)
+    end
+
+    test "persists the new status to the database" do
+      {:ok, item} = Shopping.add_item(%{"name" => "milk"})
+      {:ok, _} = Shopping.cycle_item_status(item)
+
+      assert Repo.get!(Item, item.id).status == :checked
+    end
+  end
+
   describe "normalize_name/1" do
     test "lowercases, trims, and collapses internal whitespace" do
       assert Shopping.normalize_name("  Oat   MILK ") == "oat milk"

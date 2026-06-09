@@ -1,0 +1,20 @@
+<li
+  id={"shopper-item-#{@item.id}"}
+  class="shopper-item"
+  data-status={@item.status}
+  hx-patch={~p"/shopper/items/#{@item.id}/cycle"}
+  hx-target={"#shopper-item-#{@item.id}"}
+  hx-swap="outerHTML"
+>
+  <label>
+    <input
+      class="tick-box"
+      type="checkbox"
+      checked={@item.status == :checked}
+      tabindex="-1"
+    />
+    <span class={["t-body", @item.status in [:checked, :not_available] && "-struck"]}>
+      {@item.name}
+    </span>
+  </label>
+</li>
