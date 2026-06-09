@@ -126,3 +126,35 @@
 #item-list:has(.item-row) ~ .empty-note {
   display: none;
 }
+
+/* Shopper view: route-ordered, grouped list.
+ * Read-only in this slice — tap actions (check-off) arrive in slice #5. */
+.route-section {
+  margin-top: var(--space-8);
+}
+
+.route-section + .route-section {
+  border-top: var(--rule-1) solid var(--rule);
+  padding-top: var(--space-8);
+  margin-top: 0;
+}
+
+.section-heading {
+  margin: 0 0 var(--space-3);
+}
+
+.shopper-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Large touch target so the Shopper can tap items one-handed. */
+.shopper-item {
+  min-height: var(--space-10);
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: var(--rule-1) solid var(--rule-soft);
+  color: var(--ink);
+}
