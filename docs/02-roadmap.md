@@ -47,7 +47,6 @@ Turns the proof-of-loop into something the Operator and Shopper actually use.
 
 ## Phase 4 — Smarter matching (handoff v3)
 
-- Fuzzy/semantic cache matching (embeddings) for near-duplicate item names.
 - Route order **learned from observed check-off order** in-store.
 
 ## Explicitly out of scope (all phases, per handoff §10)
