@@ -41,6 +41,26 @@ defmodule Pearview.DataCase do
   end
 
   @doc """
+  Blocks until every in-flight `Pearview.TaskSupervisor` child has finished, so a
+  test can assert the database effects of the background categorisation run
+  started on Shopper-view open. The spawned task reaches this test's sandbox
+  connection and Req stub through its `$callers` chain.
+  """
+  def await_background_tasks(timeout \\ 1000) do
+    Pearview.TaskSupervisor
+    |> Task.Supervisor.children()
+    |> Enum.each(fn pid ->
+      ref = Process.monitor(pid)
+
+      receive do
+        {:DOWN, ^ref, :process, ^pid, _reason} -> :ok
+      after
+        timeout -> Process.demonitor(ref, [:flush])
+      end
+    end)
+  end
+
+  @doc """
   A helper that transforms changeset errors into a map of messages.
 
       assert {:error, changeset} = Accounts.create_user(%{password: "short"})

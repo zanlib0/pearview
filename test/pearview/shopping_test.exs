@@ -2,7 +2,7 @@ defmodule Pearview.ShoppingTest do
   use Pearview.DataCase, async: true
 
   alias Pearview.Shopping
-  alias Pearview.Shopping.{Categorization, Item, Section, Store}
+  alias Pearview.Shopping.{Categorization, CategorizeUncategorized, Item, Section, Store}
 
   # A well-formed OpenAI-style forced tool call wrapping the given assignments.
   defp tool_call_response(assignments) do
@@ -256,7 +256,7 @@ defmodule Pearview.ShoppingTest do
       %{store: store, produce: produce, dairy: dairy}
     end
 
-    test "stamps items from a placed cache hit without calling the LLM", %{
+    test "stamps items from a placed cache hit synchronously, reporting :idle", %{
       store: store,
       produce: produce
     } do
@@ -270,11 +270,11 @@ defmodule Pearview.ShoppingTest do
       {:ok, item} = Shopping.add_item(%{"name" => "Bananas"})
       refute_ai_called()
 
-      assert Shopping.categorize_uncategorized() == :ok
+      assert Shopping.categorize_uncategorized() == :idle
       assert Repo.get!(Item, item.id).section_id == produce.id
     end
 
-    test "leaves items in Other for an unplaced cache hit without calling the LLM", %{
+    test "leaves items in Other for an unplaced cache hit, reporting :idle", %{
       store: store
     } do
       Repo.insert!(%Categorization{
@@ -287,15 +287,12 @@ defmodule Pearview.ShoppingTest do
       {:ok, item} = Shopping.add_item(%{"name" => "Capers"})
       refute_ai_called()
 
-      assert Shopping.categorize_uncategorized() == :ok
+      assert Shopping.categorize_uncategorized() == :idle
       assert Repo.get!(Item, item.id).section_id == nil
     end
 
-    test "sends only never-seen names to the LLM, resolving cached ones for free", %{
-      store: store,
-      produce: produce,
-      dairy: dairy
-    } do
+    test "stamps cached names synchronously and reports :categorising when names need the LLM",
+         %{store: store, produce: produce} do
       Repo.insert!(%Categorization{
         store_id: store.id,
         normalized_name: "bananas",
@@ -305,68 +302,19 @@ defmodule Pearview.ShoppingTest do
 
       {:ok, bananas} = Shopping.add_item(%{"name" => "Bananas"})
       {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
-
-      test_pid = self()
-
-      Req.Test.stub(Pearview.AI, fn conn ->
-        {:ok, raw, conn} = Plug.Conn.read_body(conn)
-        send(test_pid, {:ai_request, Jason.decode!(raw)})
-        Req.Test.json(conn, tool_call_response([%{"item" => "milk", "section" => "Dairy"}]))
-      end)
-
-      assert Shopping.categorize_uncategorized() == :ok
-
-      assert_received {:ai_request, body}
-      prompt = body["messages"] |> List.last() |> Map.get("content")
-      assert prompt =~ "milk"
-      refute prompt =~ "bananas"
-
-      assert Repo.get!(Item, bananas.id).section_id == produce.id
-      assert Repo.get!(Item, milk.id).section_id == dairy.id
-    end
-
-    test "writes through placed LLM answers to the cache and stamps the items", %{
-      store: store,
-      dairy: dairy
-    } do
-      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
-      stub_ai([%{"item" => "milk", "section" => "Dairy"}])
-
-      assert Shopping.categorize_uncategorized() == :ok
-
-      assert Repo.get!(Item, milk.id).section_id == dairy.id
-
-      row = Repo.get_by!(Categorization, store_id: store.id, normalized_name: "milk")
-      assert row.section_id == dairy.id
-      assert row.source == :ai
-    end
-
-    test "writes an unplaced cache row for names the model omits, leaving them in Other", %{
-      store: store
-    } do
-      {:ok, widget} = Shopping.add_item(%{"name" => "Obscure Widget"})
       stub_ai([])
 
-      assert Shopping.categorize_uncategorized() == :ok
+      assert Shopping.categorize_uncategorized() == :categorising
 
-      assert Repo.get!(Item, widget.id).section_id == nil
-
-      row = Repo.get_by!(Categorization, store_id: store.id, normalized_name: "obscure widget")
-      assert row.section_id == nil
-      assert row.source == :ai
-    end
-
-    test "writes no cache rows and leaves items uncategorised on an LLM error", %{store: _store} do
-      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
-      Req.Test.stub(Pearview.AI, fn conn -> Plug.Conn.send_resp(conn, 500, "boom") end)
-
-      assert Shopping.categorize_uncategorized() == :ok
-
+      # The cache hit is resolved before the call returns; the never-seen name
+      # is handed to the background task and is still in Other synchronously.
+      assert Repo.get!(Item, bananas.id).section_id == produce.id
       assert Repo.get!(Item, milk.id).section_id == nil
-      assert Repo.all(Categorization) == []
+
+      await_background_tasks()
     end
 
-    test "re-adding a previously-known name resolves from cache without an LLM call", %{
+    test "re-adding a previously-known name resolves from cache, reporting :idle", %{
       store: store,
       dairy: dairy
     } do
@@ -381,13 +329,85 @@ defmodule Pearview.ShoppingTest do
       {:ok, item} = Shopping.add_item(%{"name" => "Milk"})
       refute_ai_called()
 
-      assert Shopping.categorize_uncategorized() == :ok
+      assert Shopping.categorize_uncategorized() == :idle
       assert Repo.get!(Item, item.id).section_id == dairy.id
     end
 
-    test "is a no-op when there are no uncategorised items" do
+    test "is a no-op reporting :idle when there are no uncategorised items" do
       refute_ai_called()
-      assert Shopping.categorize_uncategorized() == :ok
+      assert Shopping.categorize_uncategorized() == :idle
+    end
+  end
+
+  describe "resolve_missed/2" do
+    setup do
+      store = Repo.insert!(%Store{name: "Cache Store"})
+
+      produce =
+        Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id, hints: "fruit"})
+
+      dairy =
+        Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id, hints: "milk"})
+
+      %{store: store, produce: produce, dairy: dairy}
+    end
+
+    test "sends the given names to the LLM", %{store: store} do
+      {:ok, _milk} = Shopping.add_item(%{"name" => "Milk"})
+      test_pid = self()
+
+      Req.Test.stub(Pearview.AI, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:ai_request, Jason.decode!(raw)})
+        Req.Test.json(conn, tool_call_response([%{"item" => "milk", "section" => "Dairy"}]))
+      end)
+
+      assert CategorizeUncategorized.resolve_missed(store, ["milk"]) == :ok
+
+      assert_received {:ai_request, body}
+      prompt = body["messages"] |> List.last() |> Map.get("content")
+      assert prompt =~ "milk"
+    end
+
+    test "writes through placed LLM answers to the cache and stamps the items", %{
+      store: store,
+      dairy: dairy
+    } do
+      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+      stub_ai([%{"item" => "milk", "section" => "Dairy"}])
+
+      assert CategorizeUncategorized.resolve_missed(store, ["milk"]) == :ok
+
+      assert Repo.get!(Item, milk.id).section_id == dairy.id
+
+      row = Repo.get_by!(Categorization, store_id: store.id, normalized_name: "milk")
+      assert row.section_id == dairy.id
+      assert row.source == :ai
+    end
+
+    test "writes an unplaced cache row for names the model omits, leaving them in Other", %{
+      store: store
+    } do
+      {:ok, widget} = Shopping.add_item(%{"name" => "Obscure Widget"})
+      stub_ai([])
+
+      assert CategorizeUncategorized.resolve_missed(store, ["obscure widget"]) == :ok
+
+      assert Repo.get!(Item, widget.id).section_id == nil
+
+      row = Repo.get_by!(Categorization, store_id: store.id, normalized_name: "obscure widget")
+      assert row.section_id == nil
+      assert row.source == :ai
+    end
+
+    test "writes no cache rows and leaves items uncategorised on an LLM error", %{store: store} do
+      {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+      Req.Test.stub(Pearview.AI, fn conn -> Plug.Conn.send_resp(conn, 500, "boom") end)
+
+      assert CategorizeUncategorized.resolve_missed(store, ["milk"]) == :ok
+
+      assert Repo.get!(Item, milk.id).section_id == nil
+      assert Repo.all(Categorization) == []
     end
   end
 

@@ -5,14 +5,18 @@ defmodule Pearview.Shopping.CategorizeUncategorized do
   matching items. This is the categorisation orchestration triggered on
   Shopper-view open; `Pearview.Shopping` delegates to it.
 
-  For each distinct uncategorised `normalized_name`:
+  The cache pass is **synchronous** so the page opens already grouped for names
+  it has seen before; the LLM pass runs in an **unlinked background task** so the
+  first paint never blocks on OpenRouter (issue #18). For each distinct
+  uncategorised `normalized_name`:
 
-    * A cache hit (`categorizations` row for this store) is used for free — a
-      placed row stamps the items, an unplaced row (`section_id` nil) leaves them
-      in Other. Neither is re-sent to the LLM.
-    * Never-seen names go to `Pearview.AI` in one batched call. Every successful
-      answer is written through to the cache (including **unplaced** rows for
-      names the model omits or places off-route) and placed items are stamped.
+    * A cache hit (`categorizations` row for this store) is used for free,
+      synchronously — a placed row stamps the items, an unplaced row
+      (`section_id` nil) leaves them in Other. Neither is re-sent to the LLM.
+    * Never-seen names are handed to a supervised background task (see
+      `resolve_missed/2`) that calls `Pearview.AI` in one batched call. They sit
+      in Other until that task finishes and the **next** request for the view
+      picks up the stamped sections; there is no in-page swap.
     * On an AI error, **no cache rows are written** and the missed items are left
       uncategorised — the next open retries. See ADR-0002.
   """
@@ -24,22 +28,49 @@ defmodule Pearview.Shopping.CategorizeUncategorized do
   alias Pearview.Shopping.{Categorization, Item, Section, Store}
 
   @doc """
-  Runs the resolution described in the module doc. Returns `:ok`, including the
-  no-op case where there is no store or nothing left to resolve.
+  Runs the cache pass synchronously, then starts a background task for any
+  never-seen names. Returns:
+
+    * `:categorising` when a background LLM run was started for this request —
+      the caller renders the "Categorising" note and the missed items stay in
+      Other until the next request picks them up.
+    * `:idle` otherwise: no store, nothing uncategorised, or every name resolved
+      straight from the cache.
   """
   def call do
     with %Store{} = store <- current_store(),
          [_ | _] = names <- uncategorized_normalized_names() do
-      sections = route_sections(store)
       {cached, missed} = resolve_from_cache(store, names)
-
       stamp_cache_hits(cached)
-      resolve_missed_with_ai(store, sections, missed)
 
-      :ok
+      case missed do
+        [] ->
+          :idle
+
+        _ ->
+          start_background_resolution(store, missed)
+          :categorising
+      end
     else
-      _ -> :ok
+      _ -> :idle
     end
+  end
+
+  @doc """
+  Synchronously resolves `missed` (never-seen normalized names) for `store`
+  against its Route via `Pearview.AI`, writing every answer through to the cache
+  and stamping placed items. This is the unit of work the background task runs;
+  it is also called directly in tests. Returns `:ok` (including the AI-error
+  case, which writes nothing — see ADR-0002).
+  """
+  def resolve_missed(%Store{} = store, missed) when is_list(missed) do
+    resolve_missed_with_ai(store, route_sections(store), missed)
+  end
+
+  defp start_background_resolution(store, missed) do
+    Task.Supervisor.start_child(Pearview.TaskSupervisor, fn ->
+      resolve_missed(store, missed)
+    end)
   end
 
   defp current_store do

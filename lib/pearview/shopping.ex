@@ -49,7 +49,9 @@ defmodule Pearview.Shopping do
 
   @doc """
   Resolves every uncategorised Item against the store's Route on Shopper-view
-  open — cache first, LLM second. Delegates to
+  open — cache pass synchronous, LLM pass in a background task. Returns
+  `:categorising` when a background run was started (so the view shows the
+  "Categorising" note) or `:idle` otherwise. Delegates to
   `Pearview.Shopping.CategorizeUncategorized`; see that module for the rules.
   """
   defdelegate categorize_uncategorized, to: CategorizeUncategorized, as: :call
