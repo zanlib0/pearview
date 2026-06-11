@@ -177,3 +177,11 @@
 .end-trip-button {
   margin-top: var(--space-8);
 }
+
+/* Shown while a background run resolves never-seen names: those items sit in
+ * Other until the next open. The stamp is a sealed Masthead component; the
+ * caller only places it (sealed-box rule). */
+.categorising-note {
+  display: inline-block;
+  margin-top: var(--space-4);
+}

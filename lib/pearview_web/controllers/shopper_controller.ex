@@ -4,12 +4,15 @@ defmodule PearviewWeb.ShopperController do
   alias Pearview.Shopping
 
   def index(conn, _params) do
-    # Resolve any uncategorised items (cache first, LLM second) before rendering,
-    # so the list opens already grouped into the store's route. The categorise
-    # call is a no-op once everything is placed, so repeat opens are cheap.
-    Shopping.categorize_uncategorized()
+    # Cache-hit names resolve synchronously here; never-seen names move to a
+    # background LLM task and stay in Other until the next request. We render
+    # immediately either way, showing a "Categorising" note while that task runs.
+    categorising? = Shopping.categorize_uncategorized() == :categorising
 
-    render(conn, :index, groups: Shopping.list_grouped_for_shopper())
+    render(conn, :index,
+      groups: Shopping.list_grouped_for_shopper(),
+      categorising?: categorising?
+    )
   end
 
   def cycle(conn, %{"id" => id}) do
