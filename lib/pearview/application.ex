@@ -14,8 +14,10 @@ defmodule Pearview.Application do
        repos: Application.fetch_env!(:pearview, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:pearview, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Pearview.PubSub},
-      # Start a worker by calling: Pearview.Worker.start_link(arg)
-      # {Pearview.Worker, arg},
+      # Supervises the unlinked background categorisation runs started on
+      # Shopper-view open, so a request process dying (e.g. a phone lock right
+      # after open) can't kill an in-flight OpenRouter call. See issue #18.
+      {Task.Supervisor, name: Pearview.TaskSupervisor},
       # Start to serve requests, typically the last entry
       PearviewWeb.Endpoint
     ]

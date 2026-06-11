@@ -7,6 +7,10 @@
     </nav>
   </header>
 
+  <span :if={@categorising?} class="cancel-stamp categorising-note" data-accent="amber">
+    Categorising
+  </span>
+
   <div id="shopper-list">
     <.shopper_list groups={@groups} />
   </div>

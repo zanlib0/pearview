@@ -145,37 +145,93 @@ defmodule PearviewWeb.ShopperControllerTest do
   end
 
   describe "GET /shopper categorisation on open" do
-    test "categorises uncategorised items and renders them under their section", %{
-      conn: conn,
-      dairy: dairy
-    } do
+    test "renders immediately with the item in Other and a Categorising note, then places it on the next open",
+         %{conn: conn, dairy: dairy} do
       {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
+      test_pid = self()
 
+      # Block the LLM at the call boundary so the first render deterministically
+      # sees the pre-resolution state — exactly as production's slow round-trip
+      # would. We release it once the first paint has been asserted.
       Req.Test.stub(Pearview.AI, fn c ->
+        send(test_pid, {:ai_called, self()})
+        receive do: (:proceed -> :ok), after: (2000 -> :ok)
         Req.Test.json(c, tool_call_response([%{"item" => "milk", "section" => "Dairy & Eggs"}]))
       end)
 
-      conn = get(conn, ~p"/shopper")
-      body = html_response(conn, 200)
+      # First open paints without waiting on the LLM: Milk is still in Other and
+      # the static Categorising note stands in for the background run.
+      body = conn |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ "Categorising"
+      assert body =~ "Other"
+      assert body =~ "Milk"
+      refute body =~ "Dairy &amp; Eggs"
+
+      # Release the background LLM call; the next request picks up the section.
+      assert_receive {:ai_called, task_pid}
+      send(task_pid, :proceed)
+      Pearview.DataCase.await_background_tasks()
+      assert Repo.get!(Item, milk.id).section_id == dairy.id
+
+      body = build_conn() |> get(~p"/shopper") |> html_response(200)
 
       assert body =~ "Dairy &amp; Eggs"
       assert body =~ "Milk"
       refute body =~ ">Other<"
-      assert Repo.get!(Item, milk.id).section_id == dairy.id
+      refute body =~ "Categorising"
     end
 
-    test "leaves items the AI cannot place in the Other group", %{conn: conn} do
+    test "leaves items the AI cannot place in Other and stops showing the note once cached", %{
+      conn: conn
+    } do
       Shopping.add_item(%{"name" => "Obscure Widget"})
 
       # default setup stub places nothing
-      conn = get(conn, ~p"/shopper")
-      body = html_response(conn, 200)
+      body = conn |> get(~p"/shopper") |> html_response(200)
 
+      assert body =~ "Categorising"
       assert body =~ "Other"
       assert body =~ "Obscure Widget"
+
+      # The unplaced answer is now cached, so the next open resolves from cache
+      # with no background run and no note.
+      Pearview.DataCase.await_background_tasks()
+      body = build_conn() |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ "Obscure Widget"
+      refute body =~ "Categorising"
     end
 
-    test "resolves an already-cached name without calling the LLM", %{
+    test "a refresh while a run is in flight shows the note but does not re-ask the model", %{
+      conn: conn
+    } do
+      {:ok, _milk} = Shopping.add_item(%{"name" => "Milk"})
+      test_pid = self()
+
+      # Block the run at the LLM boundary so it stays in flight across the second
+      # open, and announce each time the LLM is actually entered.
+      Req.Test.stub(Pearview.AI, fn c ->
+        send(test_pid, {:ai_called, self()})
+        receive do: (:proceed -> :ok), after: (2000 -> :ok)
+        Req.Test.json(c, tool_call_response([]))
+      end)
+
+      body = conn |> get(~p"/shopper") |> html_response(200)
+      assert body =~ "Categorising"
+      assert_receive {:ai_called, task_pid}
+
+      # A refresh while the first run is still working still shows the note but
+      # must not start a second, duplicate OpenRouter call for the same names.
+      body = build_conn() |> get(~p"/shopper") |> html_response(200)
+      assert body =~ "Categorising"
+      refute_receive {:ai_called, _}, 100
+
+      send(task_pid, :proceed)
+      Pearview.DataCase.await_background_tasks()
+    end
+
+    test "resolves an already-cached name synchronously, without the LLM or a note", %{
       conn: conn,
       store: store,
       produce: produce
@@ -193,25 +249,41 @@ defmodule PearviewWeb.ShopperControllerTest do
         raise "the LLM must not be called for a name already in the cache"
       end)
 
-      conn = get(conn, ~p"/shopper")
-      body = html_response(conn, 200)
+      body = conn |> get(~p"/shopper") |> html_response(200)
 
       assert body =~ "Produce"
       assert body =~ "Bananas"
+      refute body =~ "Categorising"
       assert Repo.get!(Item, bananas.id).section_id == produce.id
     end
 
-    test "renders the list without crashing when the AI call errors", %{conn: conn} do
+    @tag :capture_log
+    test "renders without crashing when the AI call errors, retrying the note on the next open",
+         %{
+           conn: conn
+         } do
       {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
 
       Req.Test.stub(Pearview.AI, fn c -> Plug.Conn.send_resp(c, 500, "boom") end)
 
-      conn = get(conn, ~p"/shopper")
-      body = html_response(conn, 200)
+      body = conn |> get(~p"/shopper") |> html_response(200)
 
+      assert body =~ "Categorising"
       assert body =~ "Other"
       assert body =~ "Milk"
+
+      # The failed call writes nothing, so the item stays in Other and the next
+      # open starts a fresh run — the note shows again, no cache rows are written.
+      Pearview.DataCase.await_background_tasks()
       assert Repo.get!(Item, milk.id).section_id == nil
+
+      body = build_conn() |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ "Categorising"
+      assert body =~ "Milk"
+      assert Repo.all(Categorization) == []
+
+      Pearview.DataCase.await_background_tasks()
     end
   end
 
