@@ -203,6 +203,34 @@ defmodule PearviewWeb.ShopperControllerTest do
       refute body =~ "Categorising"
     end
 
+    test "a refresh while a run is in flight shows the note but does not re-ask the model", %{
+      conn: conn
+    } do
+      {:ok, _milk} = Shopping.add_item(%{"name" => "Milk"})
+      test_pid = self()
+
+      # Block the run at the LLM boundary so it stays in flight across the second
+      # open, and announce each time the LLM is actually entered.
+      Req.Test.stub(Pearview.AI, fn c ->
+        send(test_pid, {:ai_called, self()})
+        receive do: (:proceed -> :ok), after: (2000 -> :ok)
+        Req.Test.json(c, tool_call_response([]))
+      end)
+
+      body = conn |> get(~p"/shopper") |> html_response(200)
+      assert body =~ "Categorising"
+      assert_receive {:ai_called, task_pid}
+
+      # A refresh while the first run is still working still shows the note but
+      # must not start a second, duplicate OpenRouter call for the same names.
+      body = build_conn() |> get(~p"/shopper") |> html_response(200)
+      assert body =~ "Categorising"
+      refute_receive {:ai_called, _}, 100
+
+      send(task_pid, :proceed)
+      Pearview.DataCase.await_background_tasks()
+    end
+
     test "resolves an already-cached name synchronously, without the LLM or a note", %{
       conn: conn,
       store: store,
@@ -229,6 +257,7 @@ defmodule PearviewWeb.ShopperControllerTest do
       assert Repo.get!(Item, bananas.id).section_id == produce.id
     end
 
+    @tag :capture_log
     test "renders without crashing when the AI call errors, retrying the note on the next open",
          %{
            conn: conn

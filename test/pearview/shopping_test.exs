@@ -400,6 +400,7 @@ defmodule Pearview.ShoppingTest do
       assert row.source == :ai
     end
 
+    @tag :capture_log
     test "writes no cache rows and leaves items uncategorised on an LLM error", %{store: store} do
       {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
       Req.Test.stub(Pearview.AI, fn conn -> Plug.Conn.send_resp(conn, 500, "boom") end)

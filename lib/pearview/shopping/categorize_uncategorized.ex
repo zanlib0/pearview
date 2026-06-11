@@ -16,12 +16,16 @@ defmodule Pearview.Shopping.CategorizeUncategorized do
     * Never-seen names are handed to a supervised background task (see
       `resolve_missed/2`) that calls `Pearview.AI` in one batched call. They sit
       in Other until that task finishes and the **next** request for the view
-      picks up the stamped sections; there is no in-page swap.
+      picks up the stamped sections; there is no in-page swap. At most **one run
+      is in flight at a time** — opens that arrive while a run is working show
+      the note but don't start a second, duplicate call for the same names.
     * On an AI error, **no cache rows are written** and the missed items are left
       uncategorised — the next open retries. See ADR-0002.
   """
 
   import Ecto.Query, warn: false
+
+  require Logger
 
   alias Pearview.AI
   alias Pearview.Repo
@@ -48,12 +52,28 @@ defmodule Pearview.Shopping.CategorizeUncategorized do
           :idle
 
         _ ->
-          start_background_resolution(store, missed)
+          # Keep at most one run in flight. A refresh — or #7's refetch on every
+          # unlock — that lands while the LLM is still working shows the note but
+          # must not start a second, duplicate OpenRouter call for the same
+          # names. (Cache-misses have no cache row yet, so without this guard
+          # every open during the in-flight window re-asks the model.)
+          unless run_in_flight?() do
+            start_background_resolution(store, missed)
+          end
+
           :categorising
       end
     else
       _ -> :idle
     end
+  end
+
+  # The TaskSupervisor hosts only categorisation runs (see Pearview.Application),
+  # so any live child means a run is already resolving names. There is a tiny
+  # check-then-start window where two simultaneous opens could both start a run;
+  # for a 2-user app that's harmless — write-through and stamping are idempotent.
+  defp run_in_flight? do
+    Task.Supervisor.children(Pearview.TaskSupervisor) != []
   end
 
   @doc """
@@ -125,9 +145,16 @@ defmodule Pearview.Shopping.CategorizeUncategorized do
           if section_id, do: stamp_items(name, section_id)
         end)
 
-      {:error, _reason} ->
+      {:error, reason} ->
         # We never got an answer — write nothing, leave the items in Other, and
-        # let the next view-open retry. (ADR-0002 rule 4.)
+        # let the next view-open retry. (ADR-0002 rule 4.) Log the reason: a
+        # silent failure here reads as "categorising forever", retrying the LLM
+        # on every open with no clue why.
+        Logger.warning(
+          "AI categorisation failed, leaving #{length(missed)} item(s) in Other: " <>
+            inspect(reason)
+        )
+
         :ok
     end
   end

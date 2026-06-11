@@ -32,9 +32,18 @@ instant.
    runs, missed items stay in Other and the view shows the Categorising note.
    The stamped sections are read on the next view-open — near-automatic once #7
    refetches on every unlock.
-4. **The error path is unchanged (ADR-0002 rule 4).** A failed call writes no
+4. **At most one run in flight.** A cache-missed name has no cache row yet, so
+   without a guard every open during the in-flight window — and #7 will make
+   those frequent — would re-ask the model for the same names. So an open that
+   finds a run already working shows the note but starts no second call. (The
+   guard treats any live `Pearview.TaskSupervisor` child as a run in progress;
+   the tiny check-then-start race is harmless because write-through and stamping
+   are idempotent.)
+5. **The error path is unchanged (ADR-0002 rule 4).** A failed call writes no
    cache rows and leaves items in Other; the note simply shows again on the next
-   open while those names remain unresolved, and that open retries.
+   open while those names remain unresolved, and that open retries. The failure
+   is logged (a warning with the reason) so a misconfigured LLM doesn't read as
+   silent, runaway categorising.
 
 ## Rejected alternatives
 
