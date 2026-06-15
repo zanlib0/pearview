@@ -2,9 +2,14 @@
 #
 #     mix run priv/repo/seeds.exs
 #
-# It seeds the single shared store, its Route (ordered Sections with hints), and
-# a handful of uncategorised Items. Re-running it resets that data, so it is safe
-# to run from `mix ecto.setup` and `mix ecto.reset`.
+# It seeds the single shared store and its Route (ordered Sections with hints).
+# The Route definition itself lives in `Pearview.Release.seed_data/0` so dev and
+# production seed from one source. This script first clears the existing data so
+# re-running is a clean reset — safe for `mix ecto.setup` / `mix ecto.reset`.
+#
+# NOTE: this is destructive (it deletes Items). In production, use the
+# idempotent `Pearview.Release.seed/0` instead, which only inserts what's
+# missing and never deletes.
 
 alias Pearview.Repo
 alias Pearview.Shopping.{Item, Section, Store}
@@ -14,43 +19,4 @@ Repo.delete_all(Item)
 Repo.delete_all(Section)
 Repo.delete_all(Store)
 
-normalize = fn name ->
-  name
-  |> String.trim()
-  |> String.downcase()
-  |> String.replace(~r/\s+/u, " ")
-end
-
-store = Repo.insert!(%Store{name: "Tesco Extra"})
-
-# The Route: sections in the order the Shopper walks the store.
-sections = [
-  {"Hobby and Homeware",
-   "technology, car supplies, lightbulbs, hobby, homeware, plates, glasses"},
-  {"Bakery", "bread, rolls, bagels, pastries, tortillas, crispbread"},
-  {"World cuisine", "Japanese, Chinese, Thai, Indian, pasta, noodles"},
-  {"Bio", "Vegan food, special diets, gluten-free, bio, tofu, coconut yoghurt"},
-  {"Deli", "Sliced meats, cheese"},
-  {"Meat", "Raw meat"},
-  {"Produce", "Fruits, vegetables"},
-  {"Bulk pantry", "Nuts, cereals, grains, kasha, rice"},
-  {"Tinned food", "Canned chickpeas, beans, peas, olives, fish"},
-  {"Spices", "Salt, pepper, spices"},
-  {"Tomato products", "Passata, tomato puree, tinned tomatoes, ketchup"},
-  {"Alcohol", "Beer, wine, liquor"},
-  {"Sweets and Baking",
-   "Tea, coffee, sweets, baking ingredients - soda bicarb, yeast, sourdough starter, jams, honeys, flours"},
-  {"Frozen", "Fish, frozen foods, ready meals"},
-  {"Dairy", "Milk, butter, yoghurt, quark"}
-]
-
-sections
-|> Enum.with_index(1)
-|> Enum.each(fn {{name, hints}, position} ->
-  Repo.insert!(%Section{
-    store_id: store.id,
-    name: name,
-    position: position,
-    hints: hints
-  })
-end)
+Pearview.Release.seed_data()

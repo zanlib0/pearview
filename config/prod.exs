@@ -1,16 +1,11 @@
 import Config
 
-# Force using SSL in production. This also sets the "strict-security-transport" header,
-# known as HSTS. If you have a health check endpoint, you may want to exclude it below.
-# Note `:force_ssl` is required to be set at compile-time.
-config :pearview, PearviewWeb.Endpoint,
-  force_ssl: [
-    rewrite_on: [:x_forwarded_proto],
-    exclude: [
-      # paths: ["/health"],
-      hosts: ["localhost", "127.0.0.1"]
-    ]
-  ]
+# TLS is terminated and http->https is enforced at the reverse proxy (Nginx
+# Proxy Manager); the app only ever speaks plain HTTP to it. We deliberately do
+# NOT set `force_ssl` here: with the proxy already redirecting, an app-side
+# Plug.SSL redirect double-forces SSL and loops whenever the app doesn't see
+# `x-forwarded-proto: https`. The endpoint's `url: [scheme: "https"]`
+# (config/runtime.exs) still makes generated links absolute https URLs.
 
 # Do not print debug messages in production
 config :logger, level: :info
