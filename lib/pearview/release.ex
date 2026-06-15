@@ -27,6 +27,27 @@ defmodule Pearview.Release do
     end
   end
 
+  @doc """
+  DESTRUCTIVE reset of the seed data: clears Items, the cache, the Route and the
+  Store, then re-seeds from `seed_data/0`. Use this (not `seed/0`) after editing
+  the Route in a way `seed/0` can't reconcile — renamed/reordered/removed
+  sections or changed hints. Deleting the Store cascades to its Sections and
+  Categorizations; Items survive with their `section_id` nilified, so they get
+  re-categorised on the next shopper-view open.
+  """
+  def reseed do
+    load_app()
+
+    for repo <- repos() do
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(repo, fn _repo ->
+          Pearview.Repo.delete_all(Pearview.Shopping.Categorization)
+          Pearview.Repo.delete_all(Pearview.Shopping.Store)
+          seed_data()
+        end)
+    end
+  end
+
   # The actual inserts, assuming the repo is already running. Public so the dev
   # seeds script (priv/repo/seeds.exs) can reuse it as the single source of the
   # Route definition.
@@ -66,8 +87,10 @@ defmodule Pearview.Release do
       {"Alcohol", "Beer, wine, liquor"},
       {"Sweets and Baking",
        "Tea, coffee, sweets, baking ingredients - soda bicarb, yeast, sourdough starter, jams, honeys, flours"},
+      {"Cleaning and Bathroom", "Kitchen roll, toilet paper"},
       {"Frozen", "Fish, frozen foods, ready meals"},
-      {"Dairy", "Milk, butter, yoghurt, quark"}
+      {"Dairy", "Milk, butter, yoghurt, quark"},
+      {"Rossmann", "Drugstore items, baby nappies, powdered dates, carob, biodegradable bags"}
     ]
   end
 
