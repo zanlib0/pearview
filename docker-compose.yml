@@ -1,0 +1,37 @@
+# Pearview deployment stack.
+#
+# Designed to run as a Portainer stack behind Nginx Proxy Manager: NPM
+# terminates TLS and forwards X-Forwarded-Proto, the app itself only speaks
+# plain HTTP on $PORT. Secrets are supplied via the Portainer stack
+# environment (or a local .env file — see .env.example).
+services:
+  app:
+    image: git.jerusalem.ovh/justinian/pearview:latest
+    # `build` is only used for local `docker compose up --build`; in
+    # production Portainer pulls the image published by CI.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Start the Phoenix server (required for releases).
+      PHX_SERVER: "true"
+      # Public host NPM serves the app on (used to build URLs).
+      PHX_HOST: "${PHX_HOST:?set PHX_HOST, e.g. pearview.example.com}"
+      # Port the app listens on inside the container.
+      PORT: "${PORT:-4000}"
+      # SQLite database file — lives on the named volume below.
+      DATABASE_PATH: "${DATABASE_PATH:-/app/data/pearview.db}"
+      POOL_SIZE: "${POOL_SIZE:-5}"
+      # Secrets — set these in the Portainer stack environment.
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE:?set SECRET_KEY_BASE, generate with mix phx.gen.secret}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY}"
+      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}"
+    ports:
+      # Exposed for NPM (or local access). Host:container both use $PORT.
+      - "${PORT:-4000}:${PORT:-4000}"
+    volumes:
+      - pearview_data:/app/data
+
+volumes:
+  pearview_data:
