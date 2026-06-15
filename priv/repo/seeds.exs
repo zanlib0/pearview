@@ -25,7 +25,8 @@ store = Repo.insert!(%Store{name: "Tesco Extra"})
 
 # The Route: sections in the order the Shopper walks the store.
 sections = [
-  {"Hobby and Homeware", "technology, car supplies, lightbulbs, hobby, homeware, plates, glasses"},
+  {"Hobby and Homeware",
+   "technology, car supplies, lightbulbs, hobby, homeware, plates, glasses"},
   {"Bakery", "bread, rolls, bagels, pastries, tortillas, crispbread"},
   {"World cuisine", "Japanese, Chinese, Thai, Indian, pasta, noodles"},
   {"Bio", "Vegan food, special diets, gluten-free, bio, tofu, coconut yoghurt"},
@@ -37,7 +38,8 @@ sections = [
   {"Spices", "Salt, pepper, spices"},
   {"Tomato products", "Passata, tomato puree, tinned tomatoes, ketchup"},
   {"Alcohol", "Beer, wine, liquor"},
-  {"Sweets and Baking", "Tea, coffee, sweets, baking ingredients - soda bicarb, yeast, sourdough starter, jams, honeys, flours"},
+  {"Sweets and Baking",
+   "Tea, coffee, sweets, baking ingredients - soda bicarb, yeast, sourdough starter, jams, honeys, flours"},
   {"Frozen", "Fish, frozen foods, ready meals"},
   {"Dairy", "Milk, butter, yoghurt, quark"}
 ]
