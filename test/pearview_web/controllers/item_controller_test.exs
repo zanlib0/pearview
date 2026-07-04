@@ -1,13 +1,15 @@
 defmodule PearviewWeb.ItemControllerTest do
   use PearviewWeb.ConnCase
 
+  import Pearview.ShoppingFixtures
+
   alias Pearview.Repo
   alias Pearview.Shopping.Item
 
   test "GET / renders every item on the list as a tick-box", %{conn: conn} do
-    Repo.insert!(%Item{name: "Bananas", normalized_name: "bananas", status: :pending})
-    Repo.insert!(%Item{name: "Oat milk", normalized_name: "oat milk", status: :checked})
-    Repo.insert!(%Item{name: "Capers", normalized_name: "capers", status: :not_available})
+    item!("Bananas")
+    item!("Oat milk", status: :checked)
+    item!("Capers", status: :not_available)
 
     conn = get(conn, ~p"/")
     body = html_response(conn, 200)
@@ -47,7 +49,7 @@ defmodule PearviewWeb.ItemControllerTest do
   end
 
   test "PATCH /items/:id renames the item and returns its updated row", %{conn: conn} do
-    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+    item = item!("milk")
 
     conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "  Oat   milk "})
     body = html_response(conn, 200)
@@ -63,7 +65,7 @@ defmodule PearviewWeb.ItemControllerTest do
   end
 
   test "PATCH /items/:id with a blank name leaves the item unchanged (422)", %{conn: conn} do
-    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+    item = item!("milk")
 
     conn = patch(conn, ~p"/items/#{item.id}", item: %{name: "   "})
     body = html_response(conn, 422)
@@ -74,7 +76,7 @@ defmodule PearviewWeb.ItemControllerTest do
   end
 
   test "DELETE /items/:id hard-deletes the item and returns an empty fragment", %{conn: conn} do
-    item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+    item = item!("milk")
 
     conn = delete(conn, ~p"/items/#{item.id}")
 
@@ -84,7 +86,7 @@ defmodule PearviewWeb.ItemControllerTest do
 
   describe "PATCH /items/:id/cycle" do
     test "cycles a pending item to checked and returns its row fragment", %{conn: conn} do
-      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :pending})
+      item = item!("milk")
 
       conn = patch(conn, ~p"/items/#{item.id}/cycle")
       body = html_response(conn, 200)
@@ -96,7 +98,7 @@ defmodule PearviewWeb.ItemControllerTest do
     end
 
     test "cycles a checked item to not_available", %{conn: conn} do
-      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :checked})
+      item = item!("milk", status: :checked)
 
       conn = patch(conn, ~p"/items/#{item.id}/cycle")
       body = html_response(conn, 200)
@@ -106,8 +108,7 @@ defmodule PearviewWeb.ItemControllerTest do
     end
 
     test "cycles a not_available item back to pending", %{conn: conn} do
-      item =
-        Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :not_available})
+      item = item!("milk", status: :not_available)
 
       conn = patch(conn, ~p"/items/#{item.id}/cycle")
       body = html_response(conn, 200)
@@ -118,7 +119,7 @@ defmodule PearviewWeb.ItemControllerTest do
   end
 
   test "GET / renders each item's inline name field and delete control", %{conn: conn} do
-    item = Repo.insert!(%Item{name: "Bananas", normalized_name: "bananas", status: :pending})
+    item = item!("Bananas")
 
     conn = get(conn, ~p"/")
     body = html_response(conn, 200)
