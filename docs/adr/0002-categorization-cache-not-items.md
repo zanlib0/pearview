@@ -1,5 +1,10 @@
 # Categorisation knowledge lives in the cache, not on items
 
+> **Partially superseded by ADR-0004.** Rule 1's "a user correction (`source =
+> user`) always wins" no longer holds: per-item overrides were dropped in favour
+> of editing Section hints. Everything else below still stands.
+
+
 Items get deleted: **End trip** removes every checked item, and the Operator
 deletes freely. If the AI's placements lived only on item rows (`section_id`),
 every trip would throw away knowledge we paid the LLM for, and next week's
