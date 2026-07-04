@@ -1,6 +1,8 @@
 defmodule Pearview.AITest do
   use ExUnit.Case, async: true
 
+  import Pearview.AIStubs, only: [tool_call_response: 1]
+
   alias Pearview.AI
 
   # Sections as the context passes them: anything with name/hints/position.
@@ -9,28 +11,6 @@ defmodule Pearview.AITest do
       %{name: "Produce", hints: "fruit, veg", position: 1},
       %{name: "Dairy & Eggs", hints: "milk, cheese", position: 2}
     ]
-  end
-
-  # A well-formed OpenAI-style forced tool call wrapping the given assignments.
-  defp tool_call_response(assignments) do
-    %{
-      "choices" => [
-        %{
-          "message" => %{
-            "role" => "assistant",
-            "tool_calls" => [
-              %{
-                "type" => "function",
-                "function" => %{
-                  "name" => "categorize_items",
-                  "arguments" => Jason.encode!(%{"assignments" => assignments})
-                }
-              }
-            ]
-          }
-        }
-      ]
-    }
   end
 
   describe "categorize/2 request shape" do
