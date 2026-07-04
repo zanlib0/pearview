@@ -1,8 +1,8 @@
 # Pearview
 
-Pearview is a shopping-list app for a two-person household whose distinguishing feature is a **route-ordered, AI-categorised** list: items are grouped and ordered by the sections of whichever store the shopper picks, so the list follows the walk through that store.
+Pearview is a shopping-list app for a two-person household whose distinguishing feature is a route-ordered, AI-categorised list: items are grouped and ordered by the sections of whichever store the shopper picks, so the list follows the walk through that store.
 
-One person — the **operator** — fills the list at home. The other — the **shopper** — picks a store and runs the list, which arrives already sorted into the store's aisles. A small LLM does the categorising: never-seen item names are sorted into the store's route sections once, cached, and served free and instant from then on. User corrections always win and are never overwritten.
+One person - the operator - fills the list at home. The other - the shopper - picks a store and runs the list, which arrives already sorted into the store's aisles. A small LLM does the categorising: never-seen item names are sorted into the store's route sections once, cached, and served free and instant from then on. User corrections always win and are never overwritten.
 
 See [`CONTEXT.md`](./CONTEXT.md) for the bounded context and ubiquitous language, and [`docs/adr/`](./docs/adr/) for the architecture decisions behind it.
 
@@ -32,7 +32,7 @@ AI categorisation reads its credentials from the environment at call time:
 | `OPENROUTER_API_KEY` | OpenRouter API key | _(required for live categorising)_ |
 | `OPENROUTER_MODEL` | Override the model | `deepseek/deepseek-v4-flash` |
 
-Without a key the app still runs — items simply stay uncategorised in *Other* until a key is present (categorisation retries on the next view-open, see [ADR-0002](./docs/adr/0002-categorization-cache-not-items.md) and [ADR-0003](./docs/adr/0003-async-categorisation-on-open.md)). Tests route every OpenRouter call through `Req.Test`, so they never hit the network.
+Without a key the app still runs - items simply stay uncategorised in *Other* until a key is present (categorisation retries on the next view-open, see [ADR-0002](./docs/adr/0002-categorization-cache-not-items.md) and [ADR-0003](./docs/adr/0003-async-categorisation-on-open.md)). Tests route every OpenRouter call through `Req.Test`, so they never hit the network.
 
 ## Testing
 
@@ -45,9 +45,8 @@ mix precommit      # compile (warnings as errors), check unused deps, format, te
 
 ## How it fits together
 
-- **`Pearview.Shopping`** — the domain core: stores, sections (the route), trips, items, and the categorisation cache.
-- **`Pearview.AI`** — the OpenRouter boundary. One synchronous, batched call that sorts grocery names into a store's sections; never raises, returning `{:error, _}` so callers can leave items uncategorised and retry later.
-- **`PearviewWeb`** — Phoenix controllers returning HTML fragments that HTMX swaps in place, no full-page reloads.
+- **`Pearview.Shopping`** - the domain core: stores, sections (the route), trips, items, and the categorisation cache.
+- **`Pearview.AI`** - the OpenRouter boundary. One synchronous, batched call that sorts grocery names into a store's sections; never raises, returning `{:error, _}` so callers can leave items uncategorised and retry later.
+- **`PearviewWeb`** - Phoenix controllers returning HTML fragments that HTMX swaps in place, no full-page reloads.
 
 Currently deployed in production on a homelab, behind Cloudflare Access. Code hosted on self-hosted Gitea instance, using Gitea CI and Docker container registry. Deployed using Portainer.
-

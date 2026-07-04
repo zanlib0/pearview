@@ -1,7 +1,7 @@
 # Pearview
 
 A 2-user household shopping-list app whose distinguishing feature is a
-**route-ordered, AI-categorised** list: items are grouped and ordered by the
+route-ordered, AI-categorised list: items are grouped and ordered by the
 sections of whichever store the shopper picks, so the list follows the walk
 through that store.
 
