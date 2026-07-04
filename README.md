@@ -6,6 +6,8 @@ One person - the operator - fills the list at home. The other - the shopper - pi
 
 See [`CONTEXT.md`](./CONTEXT.md) for the bounded context and ubiquitous language, and [`docs/adr/`](./docs/adr/) for the architecture decisions behind it.
 
+The coding is mostly hands-off, only correcting styles from time to time.
+
 ## Stack
 
 | Layer | Choice |
