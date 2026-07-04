@@ -1,42 +1,21 @@
 defmodule PearviewWeb.ShopperControllerTest do
   use PearviewWeb.ConnCase
 
+  import Pearview.AIStubs, only: [tool_call_response: 1, stub_ai: 1, refute_ai_called: 0]
+  import Pearview.ShoppingFixtures
+
   alias Pearview.Repo
   alias Pearview.Shopping
-  alias Pearview.Shopping.{Categorization, Item, Section, Store}
-
-  # A well-formed OpenAI-style forced tool call wrapping the given assignments.
-  defp tool_call_response(assignments) do
-    %{
-      "choices" => [
-        %{
-          "message" => %{
-            "tool_calls" => [
-              %{
-                "function" => %{
-                  "name" => "categorize_items",
-                  "arguments" => Jason.encode!(%{"assignments" => assignments})
-                }
-              }
-            ]
-          }
-        }
-      ]
-    }
-  end
+  alias Pearview.Shopping.{Categorization, Item}
 
   setup do
-    store = Repo.insert!(%Store{name: "Test Store"})
-    produce = Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id})
-    dairy = Repo.insert!(%Section{name: "Dairy & Eggs", position: 2, store_id: store.id})
+    fixtures = store_with_sections!()
 
     # Default: the LLM places nothing, so uncategorised items stay in Other.
     # Individual tests override this stub to assert placement or cache behaviour.
-    Req.Test.stub(Pearview.AI, fn conn ->
-      Req.Test.json(conn, tool_call_response([]))
-    end)
+    stub_ai([])
 
-    %{store: store, produce: produce, dairy: dairy}
+    fixtures
   end
 
   test "GET /shopper renders section headings in route order", %{
@@ -44,19 +23,8 @@ defmodule PearviewWeb.ShopperControllerTest do
     produce: produce,
     dairy: dairy
   } do
-    Repo.insert!(%Item{
-      name: "Bananas",
-      normalized_name: "bananas",
-      status: :pending,
-      section_id: produce.id
-    })
-
-    Repo.insert!(%Item{
-      name: "Milk",
-      normalized_name: "milk",
-      status: :pending,
-      section_id: dairy.id
-    })
+    item!("Bananas", section_id: produce.id)
+    item!("Milk", section_id: dairy.id)
 
     conn = get(conn, ~p"/shopper")
     body = html_response(conn, 200)
@@ -75,19 +43,8 @@ defmodule PearviewWeb.ShopperControllerTest do
     produce: produce,
     dairy: dairy
   } do
-    Repo.insert!(%Item{
-      name: "Bananas",
-      normalized_name: "bananas",
-      status: :pending,
-      section_id: produce.id
-    })
-
-    Repo.insert!(%Item{
-      name: "Milk",
-      normalized_name: "milk",
-      status: :pending,
-      section_id: dairy.id
-    })
+    item!("Bananas", section_id: produce.id)
+    item!("Milk", section_id: dairy.id)
 
     conn = get(conn, ~p"/shopper")
     body = html_response(conn, 200)
@@ -100,14 +57,8 @@ defmodule PearviewWeb.ShopperControllerTest do
     conn: conn,
     produce: produce
   } do
-    Repo.insert!(%Item{
-      name: "Bananas",
-      normalized_name: "bananas",
-      status: :pending,
-      section_id: produce.id
-    })
-
-    Repo.insert!(%Item{name: "Lightbulbs", normalized_name: "lightbulbs", status: :pending})
+    item!("Bananas", section_id: produce.id)
+    item!("Lightbulbs")
 
     conn = get(conn, ~p"/shopper")
     body = html_response(conn, 200)
@@ -131,12 +82,7 @@ defmodule PearviewWeb.ShopperControllerTest do
     conn: conn,
     produce: produce
   } do
-    Repo.insert!(%Item{
-      name: "Bananas",
-      normalized_name: "bananas",
-      status: :pending,
-      section_id: produce.id
-    })
+    item!("Bananas", section_id: produce.id)
 
     conn = get(conn, ~p"/shopper")
     body = html_response(conn, 200)
@@ -244,10 +190,7 @@ defmodule PearviewWeb.ShopperControllerTest do
       })
 
       {:ok, bananas} = Shopping.add_item(%{"name" => "Bananas"})
-
-      Req.Test.stub(Pearview.AI, fn _c ->
-        raise "the LLM must not be called for a name already in the cache"
-      end)
+      refute_ai_called()
 
       body = conn |> get(~p"/shopper") |> html_response(200)
 
@@ -289,7 +232,7 @@ defmodule PearviewWeb.ShopperControllerTest do
 
   describe "POST /shopper/trip/end" do
     test "deletes checked items from the list", %{conn: conn} do
-      Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
+      item!("Milk", status: :checked)
       Shopping.add_item(%{"name" => "Bread"})
 
       conn = post(conn, ~p"/shopper/trip/end")
@@ -300,7 +243,7 @@ defmodule PearviewWeb.ShopperControllerTest do
     end
 
     test "resets not_available items so they appear as pending", %{conn: conn} do
-      na = Repo.insert!(%Item{name: "Eggs", normalized_name: "eggs", status: :not_available})
+      na = item!("Eggs", status: :not_available)
 
       post(conn, ~p"/shopper/trip/end")
 
@@ -316,7 +259,7 @@ defmodule PearviewWeb.ShopperControllerTest do
     end
 
     test "returns the empty-state note when nothing remains", %{conn: conn} do
-      Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
+      item!("Milk", status: :checked)
 
       conn = post(conn, ~p"/shopper/trip/end")
       body = html_response(conn, 200)
@@ -338,7 +281,7 @@ defmodule PearviewWeb.ShopperControllerTest do
     end
 
     test "cycles a checked item to not_available", %{conn: conn} do
-      item = Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
+      item = item!("Milk", status: :checked)
 
       conn = patch(conn, ~p"/shopper/items/#{item.id}/cycle")
       body = html_response(conn, 200)
@@ -347,8 +290,7 @@ defmodule PearviewWeb.ShopperControllerTest do
     end
 
     test "cycles a not_available item back to pending", %{conn: conn} do
-      item =
-        Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :not_available})
+      item = item!("Milk", status: :not_available)
 
       conn = patch(conn, ~p"/shopper/items/#{item.id}/cycle")
       body = html_response(conn, 200)

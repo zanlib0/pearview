@@ -1,50 +1,16 @@
 defmodule Pearview.ShoppingTest do
   use Pearview.DataCase, async: true
 
+  import Pearview.AIStubs, only: [tool_call_response: 1, stub_ai: 1, refute_ai_called: 0]
+  import Pearview.ShoppingFixtures
+
   alias Pearview.Shopping
   alias Pearview.Shopping.{Categorization, CategorizeUncategorized, Item, Section, Store}
 
-  # A well-formed OpenAI-style forced tool call wrapping the given assignments.
-  defp tool_call_response(assignments) do
-    %{
-      "choices" => [
-        %{
-          "message" => %{
-            "tool_calls" => [
-              %{
-                "function" => %{
-                  "name" => "categorize_items",
-                  "arguments" => Jason.encode!(%{"assignments" => assignments})
-                }
-              }
-            ]
-          }
-        }
-      ]
-    }
-  end
-
-  # Stub OpenRouter to return the given assignments.
-  defp stub_ai(assignments) do
-    Req.Test.stub(Pearview.AI, fn conn ->
-      Req.Test.json(conn, tool_call_response(assignments))
-    end)
-  end
-
-  # Fail loudly if the LLM is hit at all (used to prove cache-only resolution).
-  defp refute_ai_called do
-    Req.Test.stub(Pearview.AI, fn _conn ->
-      raise "the LLM must not be called when every name resolves from cache"
-    end)
-  end
-
   describe "list_items/0" do
     test "returns the persisted items in insertion order" do
-      %Item{name: "Bananas", normalized_name: "bananas", status: :pending}
-      |> Repo.insert!()
-
-      %Item{name: "Oat milk", normalized_name: "oat milk", status: :pending}
-      |> Repo.insert!()
+      item!("Bananas")
+      item!("Oat milk")
 
       names = Shopping.list_items() |> Enum.map(& &1.name)
 
@@ -94,14 +60,7 @@ defmodule Pearview.ShoppingTest do
     test "leaves status untouched but resets section_id so the item re-resolves" do
       store = Repo.insert!(%Store{name: "Test Store"})
       dairy = Repo.insert!(%Section{name: "Dairy", position: 1, store_id: store.id})
-
-      item =
-        Repo.insert!(%Item{
-          name: "milk",
-          normalized_name: "milk",
-          status: :checked,
-          section_id: dairy.id
-        })
+      item = item!("milk", status: :checked, section_id: dairy.id)
 
       assert {:ok, updated} = Shopping.update_item(item, %{"name" => "oat milk"})
 
@@ -129,32 +88,15 @@ defmodule Pearview.ShoppingTest do
   end
 
   describe "list_grouped_for_shopper/0" do
-    setup do
-      store = Repo.insert!(%Store{name: "Test Store"})
-      dairy = Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id})
-      produce = Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id})
-      %{store: store, dairy: dairy, produce: produce}
-    end
+    setup :store_with_route
 
     test "returns sections in route (position) order with Other pinned last", %{
       dairy: dairy,
       produce: produce
     } do
-      Repo.insert!(%Item{
-        name: "Milk",
-        normalized_name: "milk",
-        status: :pending,
-        section_id: dairy.id
-      })
-
-      Repo.insert!(%Item{
-        name: "Bananas",
-        normalized_name: "bananas",
-        status: :pending,
-        section_id: produce.id
-      })
-
-      Repo.insert!(%Item{name: "Lightbulbs", normalized_name: "lightbulbs", status: :pending})
+      item!("Milk", section_id: dairy.id)
+      item!("Bananas", section_id: produce.id)
+      item!("Lightbulbs")
 
       groups = Shopping.list_grouped_for_shopper()
 
@@ -166,21 +108,8 @@ defmodule Pearview.ShoppingTest do
     end
 
     test "items within each section are ordered by insertion time", %{dairy: dairy} do
-      %{id: first_id} =
-        Repo.insert!(%Item{
-          name: "Milk",
-          normalized_name: "milk",
-          status: :pending,
-          section_id: dairy.id
-        })
-
-      %{id: second_id} =
-        Repo.insert!(%Item{
-          name: "Cheese",
-          normalized_name: "cheese",
-          status: :pending,
-          section_id: dairy.id
-        })
+      %{id: first_id} = item!("Milk", section_id: dairy.id)
+      %{id: second_id} = item!("Cheese", section_id: dairy.id)
 
       [{%{id: s_id}, items}] = Shopping.list_grouped_for_shopper()
 
@@ -191,14 +120,8 @@ defmodule Pearview.ShoppingTest do
     test "items with nil section_id appear in the Other bucket, not in any section", %{
       produce: produce
     } do
-      Repo.insert!(%Item{
-        name: "Bananas",
-        normalized_name: "bananas",
-        status: :pending,
-        section_id: produce.id
-      })
-
-      Repo.insert!(%Item{name: "Capers", normalized_name: "capers", status: :pending})
+      item!("Bananas", section_id: produce.id)
+      item!("Capers")
 
       groups = Shopping.list_grouped_for_shopper()
 
@@ -209,12 +132,7 @@ defmodule Pearview.ShoppingTest do
     end
 
     test "sections with no items are omitted from the result", %{dairy: dairy} do
-      Repo.insert!(%Item{
-        name: "Milk",
-        normalized_name: "milk",
-        status: :pending,
-        section_id: dairy.id
-      })
+      item!("Milk", section_id: dairy.id)
 
       groups = Shopping.list_grouped_for_shopper()
 
@@ -222,7 +140,7 @@ defmodule Pearview.ShoppingTest do
         Enum.map(groups, fn {head, _} -> if head == :other, do: "Other", else: head.name end)
 
       refute "Produce" in names
-      assert "Dairy" in names
+      assert "Dairy & Eggs" in names
     end
 
     test "returns an empty list when there are no items" do
@@ -230,12 +148,7 @@ defmodule Pearview.ShoppingTest do
     end
 
     test "omits the Other bucket when all items have a section", %{produce: produce} do
-      Repo.insert!(%Item{
-        name: "Bananas",
-        normalized_name: "bananas",
-        status: :pending,
-        section_id: produce.id
-      })
+      item!("Bananas", section_id: produce.id)
 
       groups = Shopping.list_grouped_for_shopper()
 
@@ -244,17 +157,7 @@ defmodule Pearview.ShoppingTest do
   end
 
   describe "categorize_uncategorized/0" do
-    setup do
-      store = Repo.insert!(%Store{name: "Cache Store"})
-
-      produce =
-        Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id, hints: "fruit"})
-
-      dairy =
-        Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id, hints: "milk"})
-
-      %{store: store, produce: produce, dairy: dairy}
-    end
+    setup :store_with_route
 
     test "stamps items from a placed cache hit synchronously, reporting :idle", %{
       store: store,
@@ -340,26 +243,16 @@ defmodule Pearview.ShoppingTest do
   end
 
   describe "resolve_missed/2" do
-    setup do
-      store = Repo.insert!(%Store{name: "Cache Store"})
+    setup :store_with_route
 
-      produce =
-        Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id, hints: "fruit"})
-
-      dairy =
-        Repo.insert!(%Section{name: "Dairy", position: 2, store_id: store.id, hints: "milk"})
-
-      %{store: store, produce: produce, dairy: dairy}
-    end
-
-    test "sends the given names to the LLM", %{store: store} do
+    test "sends the given names to the LLM", %{store: store, dairy: dairy} do
       {:ok, _milk} = Shopping.add_item(%{"name" => "Milk"})
       test_pid = self()
 
       Req.Test.stub(Pearview.AI, fn conn ->
         {:ok, raw, conn} = Plug.Conn.read_body(conn)
         send(test_pid, {:ai_request, Jason.decode!(raw)})
-        Req.Test.json(conn, tool_call_response([%{"item" => "milk", "section" => "Dairy"}]))
+        Req.Test.json(conn, tool_call_response([%{"item" => "milk", "section" => dairy.name}]))
       end)
 
       assert CategorizeUncategorized.resolve_missed(store, ["milk"]) == :ok
@@ -374,7 +267,7 @@ defmodule Pearview.ShoppingTest do
       dairy: dairy
     } do
       {:ok, milk} = Shopping.add_item(%{"name" => "Milk"})
-      stub_ai([%{"item" => "milk", "section" => "Dairy"}])
+      stub_ai([%{"item" => "milk", "section" => dairy.name}])
 
       assert CategorizeUncategorized.resolve_missed(store, ["milk"]) == :ok
 
@@ -420,13 +313,13 @@ defmodule Pearview.ShoppingTest do
     end
 
     test "advances checked to not_available" do
-      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :checked})
+      item = item!("milk", status: :checked)
 
       assert {:ok, %{status: :not_available}} = Shopping.cycle_item_status(item)
     end
 
     test "advances not_available back to pending" do
-      item = Repo.insert!(%Item{name: "milk", normalized_name: "milk", status: :not_available})
+      item = item!("milk", status: :not_available)
 
       assert {:ok, %{status: :pending}} = Shopping.cycle_item_status(item)
     end
@@ -441,8 +334,8 @@ defmodule Pearview.ShoppingTest do
 
   describe "end_trip/0" do
     test "hard-deletes all checked items" do
-      Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :checked})
-      Repo.insert!(%Item{name: "Eggs", normalized_name: "eggs", status: :checked})
+      item!("Milk", status: :checked)
+      item!("Eggs", status: :checked)
       {:ok, pending} = Shopping.add_item(%{"name" => "Bread"})
 
       Shopping.end_trip()
@@ -453,7 +346,7 @@ defmodule Pearview.ShoppingTest do
     end
 
     test "resets not_available items to pending" do
-      item = Repo.insert!(%Item{name: "Milk", normalized_name: "milk", status: :not_available})
+      item = item!("Milk", status: :not_available)
 
       Shopping.end_trip()
 
@@ -469,8 +362,8 @@ defmodule Pearview.ShoppingTest do
     end
 
     test "handles a mix: deletes checked, resets not_available, preserves pending" do
-      checked = Repo.insert!(%Item{name: "A", normalized_name: "a", status: :checked})
-      na = Repo.insert!(%Item{name: "B", normalized_name: "b", status: :not_available})
+      checked = item!("A", status: :checked)
+      na = item!("B", status: :not_available)
       {:ok, pending} = Shopping.add_item(%{"name" => "C"})
 
       Shopping.end_trip()
