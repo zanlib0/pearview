@@ -5,20 +5,22 @@ defmodule PearviewWeb.ManageController do
   is not access-controlled — roles are a soft UI split.
 
   This slice covers Store maintenance and, within one Store at a time, its Route
-  — the Sections the Shopper walks, in position order. Every mutation answers
-  with an HTML fragment for an HTMX swap, never a redirect, so the page never
-  reloads.
+  — the Sections the Shopper walks, in position order — and its Categorization
+  cache. Every mutation answers with an HTML fragment for an HTMX swap, never a
+  redirect, so the page never reloads.
 
   Store mutations also send an `HX-Trigger: stores-changed` header, which the
-  Route panel listens for: adding, renaming or deleting a store changes what the
-  panel's store picker should read, so it refetches itself.
+  store-scoped panels listen for: adding, renaming or deleting a store changes
+  what their store pickers should read, so they refetch themselves. Section
+  renames and deletes send `sections-changed` for the same reason — they change
+  what the cache panel prints, or which rows it has at all.
   """
   use PearviewWeb, :controller
 
   alias Pearview.Shopping
 
   def index(conn, params) do
-    render(conn, :index, route_assigns(params))
+    render(conn, :index, index_assigns(params))
   end
 
   @doc """
@@ -113,6 +115,7 @@ defmodule PearviewWeb.ManageController do
       {:ok, section} ->
         conn
         |> put_root_layout(html: false)
+        |> sections_changed()
         |> render(:section_row, section: section)
 
       {:error, _changeset} ->
@@ -147,17 +150,65 @@ defmodule PearviewWeb.ManageController do
     section = Shopping.get_section!(id)
     {:ok, _section} = Shopping.delete_section(section)
 
+    conn
+    |> sections_changed()
+    |> send_resp(:ok, "")
+  end
+
+  @doc """
+  Renders the whole Categorization cache panel for one Store — the store picker
+  and every name that store has an answer for, unplaced rows included. This is
+  what the picker swaps in, and what the panel refetches when the set of stores
+  changes.
+  """
+  def categorizations(conn, params) do
+    conn
+    |> put_root_layout(html: false)
+    |> render(:cache_panel, cache_assigns(params))
+  end
+
+  @doc """
+  Prunes one row from a Store's categorisation cache and returns an empty body
+  so HTMX removes its row. Items on the list keep the Section they already
+  carry (ADR-0004); the name re-resolves the next time it is added.
+  """
+  def delete_categorization(conn, %{"id" => id}) do
+    categorization = Shopping.get_categorization!(id)
+    {:ok, _categorization} = Shopping.delete_categorization(categorization)
+
     send_resp(conn, :ok, "")
   end
 
-  # The Route panel shows one store at a time. Which one is a view concern for
-  # now: the requested store if it still exists, else the first store by name.
-  # (The Shopper's Selected store is a separate, later slice.)
+  # The store-scoped panels each show one store at a time. Which one is a view
+  # concern for now: the requested store if it still exists, else the first
+  # store by name. (The Shopper's Selected store is a separate, later slice.)
+  defp index_assigns(params) do
+    {stores, store} = scoped_store(params)
+
+    [
+      stores: stores,
+      store: store,
+      sections: sections_for(store),
+      categorizations: categorizations_for(store)
+    ]
+  end
+
   defp route_assigns(params) do
-    stores = Shopping.list_stores()
-    store = pick_store(stores, params["store_id"])
+    {stores, store} = scoped_store(params)
 
     [stores: stores, store: store, sections: sections_for(store)]
+  end
+
+  defp cache_assigns(params) do
+    {stores, store} = scoped_store(params)
+
+    [stores: stores, store: store, categorizations: categorizations_for(store)]
+  end
+
+  defp scoped_store(params) do
+    stores = Shopping.list_stores()
+
+    {stores, pick_store(stores, params["store_id"])}
   end
 
   defp pick_store(stores, nil), do: List.first(stores)
@@ -169,6 +220,9 @@ defmodule PearviewWeb.ManageController do
   defp sections_for(nil), do: []
   defp sections_for(store), do: Shopping.list_sections(store)
 
+  defp categorizations_for(nil), do: []
+  defp categorizations_for(store), do: Shopping.list_categorizations(store)
+
   defp render_section_list(conn, store) do
     conn
     |> put_root_layout(html: false)
@@ -176,4 +230,9 @@ defmodule PearviewWeb.ManageController do
   end
 
   defp stores_changed(conn), do: put_resp_header(conn, "hx-trigger", "stores-changed")
+
+  # Renaming a Section changes the name the cache panel prints beside every name
+  # filed there, and deleting one takes those cache rows with it (FK cascade), so
+  # both leave the cache panel stale on the same page. It refetches on this.
+  defp sections_changed(conn), do: put_resp_header(conn, "hx-trigger", "sections-changed")
 end

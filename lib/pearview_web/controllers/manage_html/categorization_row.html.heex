@@ -1,0 +1,21 @@
+<li id={"categorization-#{@categorization.id}"} class="item-row cache-row">
+  <span class="cache-name t-body">{@categorization.normalized_name}</span>
+  <%= if @categorization.section do %>
+    <span class="cache-placement t-meta">{@categorization.section.name}</span>
+  <% else %>
+    <span class="cache-placement t-meta -unplaced">Unplaced</span>
+  <% end %>
+  <button
+    type="button"
+    class="item-delete"
+    aria-label={"Forget where #{@categorization.normalized_name} goes"}
+    title="Forget"
+    hx-delete={~p"/manage/categorizations/#{@categorization.id}"}
+    hx-target={"#categorization-#{@categorization.id}"}
+    hx-swap="outerHTML"
+    hx-confirm={"Forget where #{@categorization.normalized_name} goes? It is asked again next time it appears; items on the list keep their section."}
+    data-accent="ruby"
+  >
+    ×
+  </button>
+</li>

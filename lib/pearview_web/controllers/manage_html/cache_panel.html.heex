@@ -1,0 +1,40 @@
+<div
+  id="cache-panel"
+  hx-get={
+    if @store,
+      do: ~p"/manage/categorizations?store_id=#{@store.id}",
+      else: ~p"/manage/categorizations"
+  }
+  hx-trigger="stores-changed from:body, sections-changed from:body"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <%= if @store do %>
+    <div class="store-tabs" role="group" aria-label="Store whose cache is shown">
+      <button
+        :for={store <- @stores}
+        type="button"
+        class={["stamp-button", "-small", store.id == @store.id && "-accent"]}
+        aria-pressed={to_string(store.id == @store.id)}
+        hx-get={~p"/manage/categorizations?store_id=#{store.id}"}
+        hx-target="#cache-panel"
+        hx-swap="outerHTML"
+      >
+        {store.name}
+      </button>
+    </div>
+
+    <ul id="categorization-list" class="item-list">
+      <.categorization_row
+        :for={categorization <- @categorizations}
+        categorization={categorization}
+      />
+    </ul>
+
+    <p class="empty-note t-body">
+      Nothing learned about {@store.name} yet — names land here as they are filed.
+    </p>
+  <% else %>
+    <p class="empty-note t-body">Add a store first — its cache fills as items are filed.</p>
+  <% end %>
+</div>

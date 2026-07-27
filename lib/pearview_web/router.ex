@@ -37,6 +37,9 @@ defmodule PearviewWeb.Router do
     patch "/manage/sections/:id", ManageController, :update_section
     patch "/manage/sections/:id/move", ManageController, :move_section
     delete "/manage/sections/:id", ManageController, :delete_section
+
+    get "/manage/categorizations", ManageController, :categorizations
+    delete "/manage/categorizations/:id", ManageController, :delete_categorization
   end
 
   # Other scopes may use custom stacks.

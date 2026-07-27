@@ -361,4 +361,158 @@ defmodule PearviewWeb.ManageControllerTest do
       assert Repo.all(Categorization) |> Enum.map(& &1.id) == [unplaced.id]
     end
   end
+
+  describe "the Categorization cache panel" do
+    test "GET /manage lists a store's cached names and where they are filed", %{conn: conn} do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      categorization!(store, "sour cream", section_id: dairy.id)
+
+      conn = get(conn, ~p"/manage")
+      body = html_response(conn, 200)
+
+      assert body =~ "Categorisation cache"
+      assert body =~ "sour cream"
+      assert body =~ ~s(class="cache-placement t-meta">Dairy</span>)
+    end
+
+    test "GET /manage shows rows the AI could not place as unplaced", %{conn: conn} do
+      store = store!("Lidl")
+      categorization!(store, "capers")
+
+      conn = get(conn, ~p"/manage")
+      body = html_response(conn, 200)
+
+      assert body =~ "capers"
+      assert body =~ "-unplaced"
+      assert body =~ "Unplaced"
+    end
+
+    test "GET /manage offers each cached name a forget control", %{conn: conn} do
+      store = store!("Lidl")
+      row = categorization!(store, "capers")
+
+      conn = get(conn, ~p"/manage")
+
+      assert html_response(conn, 200) =~ ~s(hx-delete="/manage/categorizations/#{row.id}")
+    end
+
+    test "GET /manage shows only the picked store's cache", %{conn: conn} do
+      aldi = store!("Aldi")
+      lidl = store!("Lidl")
+      categorization!(aldi, "bananas")
+      categorization!(lidl, "sour cream")
+
+      conn = get(conn, ~p"/manage")
+      body = html_response(conn, 200)
+
+      # the panel defaults to the first store by name
+      assert body =~ "bananas"
+      refute body =~ "sour cream"
+    end
+
+    test "GET /manage/categorizations returns the requested store's cache as a fragment", %{
+      conn: conn
+    } do
+      aldi = store!("Aldi")
+      lidl = store!("Lidl")
+      categorization!(aldi, "bananas")
+      categorization!(lidl, "sour cream")
+
+      conn = get(conn, ~p"/manage/categorizations?store_id=#{lidl.id}")
+      body = html_response(conn, 200)
+
+      assert body =~ "sour cream"
+      refute body =~ "bananas"
+      # the response is just the panel, not the whole page
+      refute body =~ "pearview"
+    end
+
+    test "GET /manage/categorizations offers a picker over every store, the shown one pressed", %{
+      conn: conn
+    } do
+      shown = store!("Aldi")
+      other = store!("Lidl")
+
+      conn = get(conn, ~p"/manage/categorizations")
+      body = html_response(conn, 200)
+
+      assert body =~ ~s(hx-get="/manage/categorizations?store_id=#{shown.id}")
+      assert body =~ ~s(hx-get="/manage/categorizations?store_id=#{other.id}")
+      assert body =~ ~s(aria-pressed="true")
+    end
+
+    test "GET /manage/categorizations falls back to the first store when the asked-for one is gone",
+         %{conn: conn} do
+      aldi = store!("Aldi")
+      categorization!(aldi, "bananas")
+
+      conn = get(conn, ~p"/manage/categorizations?store_id=999999")
+
+      assert html_response(conn, 200) =~ "bananas"
+    end
+
+    test "GET /manage asks for a store first when there are none", %{conn: conn} do
+      conn = get(conn, ~p"/manage")
+
+      assert html_response(conn, 200) =~ "Add a store first — its cache fills"
+    end
+
+    test "the cache panel refetches itself when stores or sections change", %{conn: conn} do
+      store!("Lidl")
+
+      conn = get(conn, ~p"/manage")
+      body = html_response(conn, 200)
+
+      assert body =~ ~s(id="cache-panel")
+      assert body =~ ~s(hx-trigger="stores-changed from:body, sections-changed from:body")
+    end
+
+    test "renaming or deleting a section tells the cache panel to refetch itself", %{conn: conn} do
+      section = section!(store!("Lidl"), "Diary")
+
+      renamed = patch(conn, ~p"/manage/sections/#{section.id}", section: %{name: "Dairy"})
+      assert get_resp_header(renamed, "hx-trigger") == ["sections-changed"]
+
+      deleted = delete(conn, ~p"/manage/sections/#{section.id}")
+      assert get_resp_header(deleted, "hx-trigger") == ["sections-changed"]
+    end
+  end
+
+  describe "pruning the cache" do
+    test "DELETE /manage/categorizations/:id deletes the row and returns an empty fragment", %{
+      conn: conn
+    } do
+      row = categorization!(store!("Lidl"), "capers")
+
+      conn = delete(conn, ~p"/manage/categorizations/#{row.id}")
+
+      assert response(conn, 200) == ""
+      assert Repo.get(Categorization, row.id) == nil
+    end
+
+    test "DELETE /manage/categorizations/:id leaves items on the list untouched", %{conn: conn} do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      milk = item!("Milk", section_id: dairy.id)
+      row = categorization!(store, "milk", section_id: dairy.id)
+
+      delete(conn, ~p"/manage/categorizations/#{row.id}")
+
+      assert Repo.get!(Item, milk.id).section_id == dairy.id
+      assert Repo.get!(Section, dairy.id)
+    end
+
+    test "DELETE /manage/categorizations/:id leaves the store's other cache rows alone", %{
+      conn: conn
+    } do
+      store = store!("Lidl")
+      row = categorization!(store, "capers")
+      kept = categorization!(store, "bananas")
+
+      delete(conn, ~p"/manage/categorizations/#{row.id}")
+
+      assert Repo.all(Categorization) |> Enum.map(& &1.id) == [kept.id]
+    end
+  end
 end

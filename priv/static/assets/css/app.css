@@ -123,7 +123,8 @@
  * "nothing yet" note has nothing to say. */
 #item-list:has(.item-row) ~ .empty-note,
 #store-list:has(.item-row) ~ .empty-note,
-#section-list:has(.item-row) ~ .empty-note {
+#section-list:has(.item-row) ~ .empty-note,
+#categorization-list:has(.item-row) ~ .empty-note {
   display: none;
 }
 
@@ -188,9 +189,9 @@
   margin-top: var(--space-4);
 }
 
-/* Manage surface: a stack of maintenance panels — stores now, the route and the
- * categorisation cache as they arrive. Each panel is a hairline-separated block
- * of the page, so the surface grows downward without re-laying anything out. */
+/* Manage surface: a stack of maintenance panels — stores, one store's route, and
+ * that store's categorisation cache. Each panel is a hairline-separated block of
+ * the page, so the surface grows downward without re-laying anything out. */
 .manage-panel + .manage-panel {
   margin-top: var(--space-10);
   padding-top: var(--space-8);
@@ -281,4 +282,34 @@
 .section-move-button:focus-visible {
   outline: var(--rule-1) solid var(--accent);
   outline-offset: var(--space-1);
+}
+
+/* A cache row reads as one line of a ledger: the known name at the leading edge,
+ * where the store files it at the trailing one, and the prune control last. Not
+ * editable — the only lever here is forgetting the row (ADR-0004). */
+.cache-row {
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.cache-row + .cache-row {
+  border-top: var(--rule-1) solid var(--rule-soft);
+}
+
+.cache-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cache-placement {
+  flex: 0 0 auto;
+  color: var(--ink-2);
+  text-align: end;
+}
+
+/* A name the AI could not file falls through to Other on every trip — the one
+ * thing in this list worth flagging, so it takes the warn ink. */
+.cache-placement.-unplaced {
+  color: var(--warn);
 }

@@ -48,4 +48,14 @@
 
     <.route_panel stores={@stores} store={@store} sections={@sections} />
   </section>
+
+  <section class="manage-panel">
+    <h2 class="manage-panel-heading t-subhead">Categorisation cache</h2>
+    <p class="panel-note t-body">
+      Where this store files each name it knows. Forget a name and it is asked again — with the
+      current hints — the next time it appears.
+    </p>
+
+    <.cache_panel stores={@stores} store={@store} categorizations={@categorizations} />
+  </section>
 </main>
