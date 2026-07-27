@@ -1,0 +1,29 @@
+<li id={"store-#{@store.id}"} class="item-row store-row">
+  <label class="_sr-only" for={"store_name_#{@store.id}"}>Store name</label>
+  <input
+    class="item-name-input"
+    id={"store_name_#{@store.id}"}
+    name="store[name]"
+    type="text"
+    value={@store.name}
+    autocomplete="off"
+    required
+    hx-patch={~p"/manage/stores/#{@store.id}"}
+    hx-target={"#store-#{@store.id}"}
+    hx-swap="outerHTML"
+    hx-trigger="change, keyup[key=='Enter']"
+  />
+  <button
+    type="button"
+    class="item-delete"
+    aria-label={"Delete #{@store.name}"}
+    title="Delete"
+    hx-delete={~p"/manage/stores/#{@store.id}"}
+    hx-target={"#store-#{@store.id}"}
+    hx-swap="outerHTML"
+    hx-confirm={"Delete #{@store.name}? Its route and cached categorisations go with it."}
+    data-accent="ruby"
+  >
+    ×
+  </button>
+</li>

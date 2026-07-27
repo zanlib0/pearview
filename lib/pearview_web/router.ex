@@ -26,6 +26,11 @@ defmodule PearviewWeb.Router do
     get "/shopper", ShopperController, :index
     patch "/shopper/items/:id/cycle", ShopperController, :cycle
     post "/shopper/trip/end", ShopperController, :end_trip
+
+    get "/manage", ManageController, :index
+    post "/manage/stores", ManageController, :create_store
+    patch "/manage/stores/:id", ManageController, :update_store
+    delete "/manage/stores/:id", ManageController, :delete_store
   end
 
   # Other scopes may use custom stacks.

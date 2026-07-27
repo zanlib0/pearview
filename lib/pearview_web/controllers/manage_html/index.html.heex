@@ -1,0 +1,42 @@
+<main class="page">
+  <header class="press-masthead">
+    <a class="title" href={~p"/"}>pearview</a>
+    <nav class="nav">
+      <a href={~p"/"}>list</a>
+      <a href={~p"/shopper"}>shop</a>
+      <a href={~p"/manage"} aria-current="page">manage</a>
+    </nav>
+  </header>
+
+  <section class="manage-panel">
+    <h2 class="manage-panel-heading t-subhead">Stores</h2>
+
+    <form
+      class="add-item"
+      hx-post={~p"/manage/stores"}
+      hx-target="#store-list"
+      hx-swap="beforeend"
+      hx-on::after-request="if (event.detail.successful) this.reset()"
+    >
+      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <div class="form-field add-item-field">
+        <label class="label" for="store_name">Add a store</label>
+        <input
+          class="input"
+          id="store_name"
+          name="store[name]"
+          type="text"
+          autocomplete="off"
+          required
+        />
+      </div>
+      <button class="stamp-button -accent" type="submit">Add</button>
+    </form>
+
+    <ul id="store-list" class="item-list">
+      <.store_row :for={store <- @stores} store={store} />
+    </ul>
+
+    <p class="empty-note t-body">No stores yet.</p>
+  </section>
+</main>

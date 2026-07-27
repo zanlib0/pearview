@@ -121,7 +121,8 @@
 
 /* Once the list holds a row — including one just appended by HTMX — the
  * "nothing yet" note has nothing to say. */
-#item-list:has(.item-row) ~ .empty-note {
+#item-list:has(.item-row) ~ .empty-note,
+#store-list:has(.item-row) ~ .empty-note {
   display: none;
 }
 
@@ -184,4 +185,23 @@
 .categorising-note {
   display: inline-block;
   margin-top: var(--space-4);
+}
+
+/* Manage surface: a stack of maintenance panels — stores now, the route and the
+ * categorisation cache as they arrive. Each panel is a hairline-separated block
+ * of the page, so the surface grows downward without re-laying anything out. */
+.manage-panel + .manage-panel {
+  margin-top: var(--space-10);
+  padding-top: var(--space-8);
+  border-top: var(--rule-1) solid var(--rule-soft);
+}
+
+.manage-panel-heading {
+  margin: var(--space-8) 0 0;
+}
+
+/* Store rows read like list rows, but the leading tick-box slot is empty — the
+ * name field starts at the page edge. */
+.store-row {
+  gap: var(--space-2);
 }
