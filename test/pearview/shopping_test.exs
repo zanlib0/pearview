@@ -101,6 +101,294 @@ defmodule Pearview.ShoppingTest do
     end
   end
 
+  describe "list_sections/1" do
+    test "returns a store's sections in route (position) order" do
+      store = store!("Lidl")
+      section!(store, "Dairy", position: 2)
+      section!(store, "Produce", position: 1)
+      section!(store, "Bakery", position: 3)
+
+      assert Shopping.list_sections(store) |> Enum.map(& &1.name) ==
+               ["Produce", "Dairy", "Bakery"]
+    end
+
+    test "accepts a store id as well as a store" do
+      store = store!("Lidl")
+      section!(store, "Produce")
+
+      assert Shopping.list_sections(store.id) |> Enum.map(& &1.name) == ["Produce"]
+    end
+
+    test "returns only that store's sections" do
+      store = store!("Lidl")
+      other = store!("Aldi")
+      section!(store, "Produce")
+      section!(other, "Frozen")
+
+      assert Shopping.list_sections(store) |> Enum.map(& &1.name) == ["Produce"]
+    end
+
+    test "returns an empty list for a store with no route yet" do
+      assert Shopping.list_sections(store!("Lidl")) == []
+    end
+  end
+
+  describe "create_section/1" do
+    test "adds a section with the given name and hints" do
+      store = store!("Lidl")
+
+      assert {:ok, %Section{} = section} =
+               Shopping.create_section(%{
+                 "store_id" => store.id,
+                 "name" => "Produce",
+                 "hints" => "apples, bananas"
+               })
+
+      assert section.name == "Produce"
+      assert section.hints == "apples, bananas"
+      assert Repo.get!(Section, section.id).store_id == store.id
+    end
+
+    test "appends the section to the end of the store's route" do
+      store = store!("Lidl")
+      section!(store, "Produce", position: 1)
+      section!(store, "Dairy", position: 2)
+
+      assert {:ok, bakery} =
+               Shopping.create_section(%{"store_id" => store.id, "name" => "Bakery"})
+
+      assert bakery.position == 3
+
+      assert Shopping.list_sections(store) |> Enum.map(& &1.name) == [
+               "Produce",
+               "Dairy",
+               "Bakery"
+             ]
+    end
+
+    test "gives the first section of a store position 1" do
+      store = store!("Lidl")
+
+      assert {:ok, section} =
+               Shopping.create_section(%{"store_id" => store.id, "name" => "Produce"})
+
+      assert section.position == 1
+    end
+
+    test "positions are per store, so a new store starts its route at 1" do
+      other = store!("Aldi")
+      section!(other, "Frozen", position: 7)
+      store = store!("Lidl")
+
+      assert {:ok, section} =
+               Shopping.create_section(%{"store_id" => store.id, "name" => "Produce"})
+
+      assert section.position == 1
+    end
+
+    test "stores blank hints as nil" do
+      store = store!("Lidl")
+
+      assert {:ok, section} =
+               Shopping.create_section(%{
+                 "store_id" => store.id,
+                 "name" => "Produce",
+                 "hints" => "  "
+               })
+
+      assert section.hints == nil
+    end
+
+    test "rejects a blank name" do
+      store = store!("Lidl")
+
+      assert {:error, changeset} =
+               Shopping.create_section(%{"store_id" => store.id, "name" => "  "})
+
+      refute changeset.valid?
+      assert Shopping.list_sections(store) == []
+    end
+  end
+
+  describe "update_section/2" do
+    test "renames the section" do
+      store = store!("Lidl")
+      section = section!(store, "Diary")
+
+      assert {:ok, updated} = Shopping.update_section(section, %{"name" => "Dairy"})
+
+      assert updated.name == "Dairy"
+      assert Repo.get!(Section, section.id).name == "Dairy"
+    end
+
+    test "rewrites the section's hints" do
+      store = store!("Lidl")
+      section = section!(store, "Dairy", hints: "milk")
+
+      assert {:ok, updated} = Shopping.update_section(section, %{"hints" => "milk, sour cream"})
+
+      assert updated.hints == "milk, sour cream"
+      assert Repo.get!(Section, section.id).hints == "milk, sour cream"
+    end
+
+    test "clears the hints when the field is emptied" do
+      store = store!("Lidl")
+      section = section!(store, "Dairy", hints: "milk")
+
+      assert {:ok, updated} = Shopping.update_section(section, %{"hints" => ""})
+
+      assert updated.hints == nil
+      assert Repo.get!(Section, section.id).hints == nil
+    end
+
+    test "editing hints leaves the name and the route position alone" do
+      store = store!("Lidl")
+      section = section!(store, "Dairy", position: 2)
+
+      assert {:ok, updated} = Shopping.update_section(section, %{"hints" => "milk"})
+
+      assert updated.name == "Dairy"
+      assert updated.position == 2
+    end
+
+    test "rejects a blank name and leaves the section unchanged" do
+      store = store!("Lidl")
+      section = section!(store, "Dairy")
+
+      assert {:error, changeset} = Shopping.update_section(section, %{"name" => "   "})
+      refute changeset.valid?
+      assert Repo.get!(Section, section.id).name == "Dairy"
+    end
+  end
+
+  describe "move_section/2" do
+    setup do
+      store = store!("Lidl")
+
+      %{
+        store: store,
+        produce: section!(store, "Produce", position: 1),
+        dairy: section!(store, "Dairy", position: 2),
+        bakery: section!(store, "Bakery", position: 3)
+      }
+    end
+
+    test "moving a section up swaps positions with the stop before it", %{
+      dairy: dairy,
+      produce: produce
+    } do
+      assert {:ok, sections} = Shopping.move_section(dairy, :up)
+
+      assert Enum.map(sections, & &1.name) == ["Dairy", "Produce", "Bakery"]
+      assert Repo.get!(Section, dairy.id).position == 1
+      assert Repo.get!(Section, produce.id).position == 2
+    end
+
+    test "moving a section down swaps positions with the stop after it", %{
+      dairy: dairy,
+      bakery: bakery
+    } do
+      assert {:ok, sections} = Shopping.move_section(dairy, :down)
+
+      assert Enum.map(sections, & &1.name) == ["Produce", "Bakery", "Dairy"]
+      assert Repo.get!(Section, dairy.id).position == 3
+      assert Repo.get!(Section, bakery.id).position == 2
+    end
+
+    test "moving the first section up is a no-op", %{produce: produce} do
+      assert {:ok, sections} = Shopping.move_section(produce, :up)
+
+      assert Enum.map(sections, & &1.name) == ["Produce", "Dairy", "Bakery"]
+      assert Repo.get!(Section, produce.id).position == 1
+    end
+
+    test "moving the last section down is a no-op", %{bakery: bakery} do
+      assert {:ok, sections} = Shopping.move_section(bakery, :down)
+
+      assert Enum.map(sections, & &1.name) == ["Produce", "Dairy", "Bakery"]
+      assert Repo.get!(Section, bakery.id).position == 3
+    end
+
+    test "never reaches across into another store's route", %{dairy: dairy} do
+      other = store!("Aldi")
+      frozen = section!(other, "Frozen", position: 1)
+
+      assert {:ok, _sections} = Shopping.move_section(dairy, :up)
+
+      assert Repo.get!(Section, frozen.id).position == 1
+    end
+
+    test "the shopper's grouped list follows the new order", %{dairy: dairy, produce: produce} do
+      item!("Milk", section_id: dairy.id)
+      item!("Bananas", section_id: produce.id)
+
+      {:ok, _} = Shopping.move_section(dairy, :up)
+
+      assert Shopping.list_grouped_for_shopper() |> Enum.map(fn {section, _} -> section.name end) ==
+               ["Dairy", "Produce"]
+    end
+  end
+
+  describe "delete_section/1" do
+    test "removes the stop from the store's route" do
+      store = store!("Lidl")
+      produce = section!(store, "Produce", position: 1)
+      dairy = section!(store, "Dairy", position: 2)
+
+      assert {:ok, _deleted} = Shopping.delete_section(dairy)
+
+      assert Repo.get(Section, dairy.id) == nil
+      assert Shopping.list_sections(store) |> Enum.map(& &1.id) == [produce.id]
+    end
+
+    test "leaves its items on the list, uncategorised, rather than deleting them" do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      milk = item!("Milk", section_id: dairy.id, status: :checked)
+
+      assert {:ok, _deleted} = Shopping.delete_section(dairy)
+
+      kept = Repo.get!(Item, milk.id)
+      assert kept.section_id == nil
+      assert kept.status == :checked
+    end
+
+    test "deletes that section's cached categorizations instead of freezing them as unplaced" do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      row = categorization!(store, "milk", section_id: dairy.id)
+
+      assert {:ok, _deleted} = Shopping.delete_section(dairy)
+
+      assert Repo.get(Categorization, row.id) == nil
+    end
+
+    test "leaves the store's other cache rows untouched" do
+      store = store!("Lidl")
+      produce = section!(store, "Produce", position: 1)
+      dairy = section!(store, "Dairy", position: 2)
+      kept = categorization!(store, "bananas", section_id: produce.id)
+      unplaced = categorization!(store, "capers")
+      categorization!(store, "milk", section_id: dairy.id)
+
+      assert {:ok, _deleted} = Shopping.delete_section(dairy)
+
+      assert Repo.all(Categorization) |> Enum.map(& &1.id) |> Enum.sort() ==
+               Enum.sort([kept.id, unplaced.id])
+    end
+
+    test "leaves the store itself and its other sections in place" do
+      store = store!("Lidl")
+      produce = section!(store, "Produce", position: 1)
+      dairy = section!(store, "Dairy", position: 2)
+
+      assert {:ok, _deleted} = Shopping.delete_section(dairy)
+
+      assert Repo.get!(Store, store.id)
+      assert Repo.get!(Section, produce.id)
+    end
+  end
+
   describe "list_items/0" do
     test "returns the persisted items in insertion order" do
       item!("Bananas")

@@ -5,6 +5,8 @@ defmodule Pearview.ShoppingFixtures do
   two-section test store.
   """
 
+  import Ecto.Query, only: [from: 2]
+
   alias Pearview.Repo
   alias Pearview.Shopping
   alias Pearview.Shopping.{Categorization, Item, Section, Store}
@@ -27,6 +29,26 @@ defmodule Pearview.ShoppingFixtures do
   Inserts a bare Store (no Sections) with the given name.
   """
   def store!(name), do: Repo.insert!(%Store{name: name})
+
+  @doc """
+  Inserts a Section on a Store's Route. Opts: `:position` (default: appended
+  after the store's current last stop), `:hints` (default `nil`).
+  """
+  def section!(%Store{} = store, name, opts \\ []) do
+    Repo.insert!(%Section{
+      store_id: store.id,
+      name: name,
+      position: Keyword.get_lazy(opts, :position, fn -> next_position(store) end),
+      hints: Keyword.get(opts, :hints)
+    })
+  end
+
+  defp next_position(%Store{id: store_id}) do
+    last =
+      Repo.one(from s in Section, where: s.store_id == ^store_id, select: max(s.position))
+
+    (last || 0) + 1
+  end
 
   @doc """
   Inserts a Categorization cache row for a store. Opts: `:section_id` (default

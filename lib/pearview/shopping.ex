@@ -5,8 +5,8 @@ defmodule Pearview.Shopping do
 
   It covers the Operator's list editing, the Shopper's route-ordered read path,
   the AI categorisation orchestration (see
-  `docs/prd/00-minimal-ai-shopping-loop.md`) and the Manage surface's Store
-  maintenance (see `docs/prd/01-multi-store-and-manage.md`).
+  `docs/prd/00-minimal-ai-shopping-loop.md`) and the Manage surface's Store and
+  Route maintenance (see `docs/prd/01-multi-store-and-manage.md`).
   """
 
   import Ecto.Query, warn: false
@@ -55,6 +55,109 @@ defmodule Pearview.Shopping do
   re-resolve against whichever store is shopped next.
   """
   def delete_store(%Store{} = store), do: Repo.delete(store)
+
+  @doc """
+  Returns a Store's Sections in route (position) order — the Route as the
+  Shopper walks it. Accepts the Store or its id.
+  """
+  def list_sections(%Store{id: store_id}), do: list_sections(store_id)
+
+  def list_sections(store_id) do
+    Section
+    |> where([s], s.store_id == ^store_id)
+    |> order_by(asc: :position, asc: :id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Fetches a single Section by id, raising `Ecto.NoResultsError` if it is missing.
+  """
+  def get_section!(id), do: Repo.get!(Section, id)
+
+  @doc """
+  Adds a Section to the end of a Store's Route. `position` is derived — the new
+  stop is appended after the store's current last one — so the caller only
+  supplies `store_id`, `name` and (optionally) `hints`.
+  """
+  def create_section(attrs) when is_map(attrs) do
+    attrs = Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
+
+    %Section{}
+    |> Section.changeset(Map.put(attrs, "position", next_position(attrs["store_id"])))
+    |> Repo.insert()
+  end
+
+  defp next_position(nil), do: 1
+
+  defp next_position(store_id) do
+    last = Repo.one(from s in Section, where: s.store_id == ^store_id, select: max(s.position))
+
+    (last || 0) + 1
+  end
+
+  @doc """
+  Renames a Section and/or rewrites its `hints` — the example products the AI is
+  given as context for that stop (ADR-0004: corrections are hint edits, never
+  per-item overrides). Emptying the hints field clears them.
+  """
+  def update_section(%Section{} = section, attrs) when is_map(attrs) do
+    section
+    |> Section.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Moves a Section one stop earlier (`:up`) or later (`:down`) in its Store's
+  Route by swapping `position` values with its neighbour. Moving the first stop
+  up (or the last one down) is a no-op. Returns `{:ok, sections}` with the
+  store's whole Route in its new order.
+  """
+  def move_section(%Section{} = section, direction) when direction in [:up, :down] do
+    case neighbour(section, direction) do
+      nil ->
+        {:ok, list_sections(section.store_id)}
+
+      %Section{} = neighbour ->
+        {:ok, _} =
+          Repo.transaction(fn ->
+            # Positions are only ever read in order, so a transient collision
+            # inside the transaction is harmless — no unique index to dodge.
+            Repo.update!(Ecto.Changeset.change(section, position: neighbour.position))
+            Repo.update!(Ecto.Changeset.change(neighbour, position: section.position))
+          end)
+
+        {:ok, list_sections(section.store_id)}
+    end
+  end
+
+  # The adjacent stop on the Route: the nearest section before (`:up`) or after
+  # (`:down`) this one in position order, or nil at either end of the walk.
+  defp neighbour(%Section{store_id: store_id, position: position}, :up) do
+    Section
+    |> where([s], s.store_id == ^store_id and s.position < ^position)
+    |> order_by(desc: :position, desc: :id)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  defp neighbour(%Section{store_id: store_id, position: position}, :down) do
+    Section
+    |> where([s], s.store_id == ^store_id and s.position > ^position)
+    |> order_by(asc: :position, asc: :id)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  @doc """
+  Removes a stop from a Store's Route.
+
+  Its Items stay on the list with `section_id` nilified, so they re-resolve on
+  the next Shopper-view open instead of vanishing with the section. Its cached
+  Categorizations are **deleted** (FK cascade) rather than left as "unplaced",
+  so those names get re-asked against the shortened Route. Both behaviours come
+  from the foreign keys; see the migrations.
+  """
+  def delete_section(%Section{} = section), do: Repo.delete(section)
 
   @doc """
   Returns the shopping list grouped for the Shopper view: a list of
