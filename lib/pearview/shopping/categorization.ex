@@ -7,6 +7,10 @@ defmodule Pearview.Shopping.Categorization do
   cache rows written from the LLM and `:user` for a manual correction (Phase 2);
   a user correction always wins and is never overwritten by AI.
 
+  Deleting the Section a row points at **deletes the row** (FK `:delete_all`)
+  rather than nilifying it: an unplaced row is never re-asked, so nilifying
+  would freeze every name that lived in that section into Other for good.
+
   An Item's `section_id` is just a projection stamped from this cache, so items
   can be deleted (End trip) without losing knowledge. See
   `docs/adr/0002-categorization-cache-not-items.md` and `CONTEXT.md`.
