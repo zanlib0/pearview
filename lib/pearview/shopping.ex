@@ -5,14 +5,15 @@ defmodule Pearview.Shopping do
 
   It covers the Operator's list editing, the Shopper's route-ordered read path,
   the AI categorisation orchestration (see
-  `docs/prd/00-minimal-ai-shopping-loop.md`) and the Manage surface's Store and
-  Route maintenance (see `docs/prd/01-multi-store-and-manage.md`).
+  `docs/prd/00-minimal-ai-shopping-loop.md`) and the Manage surface's Store,
+  Route and categorisation-cache maintenance (see
+  `docs/prd/01-multi-store-and-manage.md`).
   """
 
   import Ecto.Query, warn: false
 
   alias Pearview.Repo
-  alias Pearview.Shopping.{CategorizeUncategorized, Item, Section, Store}
+  alias Pearview.Shopping.{Categorization, CategorizeUncategorized, Item, Section, Store}
 
   @doc """
   Returns every Store, in name order — the Manage view's store list and (later)
@@ -158,6 +159,42 @@ defmodule Pearview.Shopping do
   from the foreign keys; see the migrations.
   """
   def delete_section(%Section{} = section), do: Repo.delete(section)
+
+  @doc """
+  Returns a Store's categorisation cache — every name the app has an answer for
+  at that store — in name order, each row's Section preloaded. Accepts the Store
+  or its id.
+
+  **Unplaced** rows (`section_id` nil: the AI was asked and could not file the
+  name, so it falls through to Other and is never re-asked) are included. They
+  are precisely what the Operator comes here to find.
+  """
+  def list_categorizations(%Store{id: store_id}), do: list_categorizations(store_id)
+
+  def list_categorizations(store_id) do
+    Categorization
+    |> where([c], c.store_id == ^store_id)
+    |> order_by(asc: :normalized_name, asc: :id)
+    |> preload(:section)
+    |> Repo.all()
+  end
+
+  @doc """
+  Fetches a single Categorization by id, raising `Ecto.NoResultsError` if it is
+  missing.
+  """
+  def get_categorization!(id), do: Repo.get!(Categorization, id)
+
+  @doc """
+  Prunes one row from the categorisation cache, so the name is resolved afresh —
+  against the store's current hints — the next time it appears.
+
+  The delete stops at the row: Items already stamped with that Section keep it
+  (ADR-0004 rule 4, no cascade). The cache outlives the items, so the correction
+  lands on the next trip, when the name is re-added uncategorised.
+  """
+  def delete_categorization(%Categorization{} = categorization),
+    do: Repo.delete(categorization)
 
   @doc """
   Returns the shopping list grouped for the Shopper view: a list of

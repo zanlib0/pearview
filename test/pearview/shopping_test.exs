@@ -389,6 +389,120 @@ defmodule Pearview.ShoppingTest do
     end
   end
 
+  describe "list_categorizations/1" do
+    test "returns a store's cached names in name order" do
+      store = store!("Lidl")
+      categorization!(store, "milk")
+      categorization!(store, "bananas")
+
+      names = Shopping.list_categorizations(store) |> Enum.map(& &1.normalized_name)
+
+      assert names == ["bananas", "milk"]
+    end
+
+    test "includes unplaced rows the AI could not file" do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      categorization!(store, "milk", section_id: dairy.id)
+      categorization!(store, "capers")
+
+      rows = Shopping.list_categorizations(store)
+
+      assert Enum.map(rows, &{&1.normalized_name, &1.section_id}) ==
+               [{"capers", nil}, {"milk", dairy.id}]
+    end
+
+    test "preloads the section each name is filed under" do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      categorization!(store, "milk", section_id: dairy.id)
+      categorization!(store, "capers")
+
+      assert [capers, milk] = Shopping.list_categorizations(store)
+
+      assert milk.section.name == "Dairy"
+      assert capers.section == nil
+    end
+
+    test "accepts a store id as well as a store" do
+      store = store!("Lidl")
+      categorization!(store, "milk")
+
+      assert Shopping.list_categorizations(store.id) |> Enum.map(& &1.normalized_name) == ["milk"]
+    end
+
+    test "returns only that store's rows" do
+      lidl = store!("Lidl")
+      aldi = store!("Aldi")
+      categorization!(lidl, "milk")
+      categorization!(aldi, "bananas")
+
+      assert Shopping.list_categorizations(lidl) |> Enum.map(& &1.normalized_name) == ["milk"]
+    end
+
+    test "returns an empty list for a store with nothing cached yet" do
+      assert Shopping.list_categorizations(store!("Lidl")) == []
+    end
+  end
+
+  describe "delete_categorization/1" do
+    test "removes the row so the name is asked again next time it appears" do
+      store = store!("Lidl")
+      row = categorization!(store, "milk")
+
+      assert {:ok, _deleted} = Shopping.delete_categorization(row)
+
+      assert Repo.get(Categorization, row.id) == nil
+      assert Shopping.list_categorizations(store) == []
+    end
+
+    test "removes an unplaced row too" do
+      store = store!("Lidl")
+      row = categorization!(store, "capers")
+
+      assert {:ok, _deleted} = Shopping.delete_categorization(row)
+
+      assert Repo.get(Categorization, row.id) == nil
+    end
+
+    test "leaves items already stamped with that section untouched (no cascade)" do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      milk = item!("Milk", section_id: dairy.id, status: :checked)
+      row = categorization!(store, "milk", section_id: dairy.id)
+
+      assert {:ok, _deleted} = Shopping.delete_categorization(row)
+
+      kept = Repo.get!(Item, milk.id)
+      assert kept.section_id == dairy.id
+      assert kept.status == :checked
+    end
+
+    test "leaves the store's other cache rows untouched" do
+      store = store!("Lidl")
+      other = store!("Aldi")
+      row = categorization!(store, "milk")
+      kept = categorization!(store, "bananas")
+      elsewhere = categorization!(other, "milk")
+
+      assert {:ok, _deleted} = Shopping.delete_categorization(row)
+
+      assert Repo.all(Categorization) |> Enum.map(& &1.id) |> Enum.sort() ==
+               Enum.sort([kept.id, elsewhere.id])
+    end
+
+    test "leaves the section it pointed at and its store in place" do
+      store = store!("Lidl")
+      dairy = section!(store, "Dairy")
+      row = categorization!(store, "milk", section_id: dairy.id)
+
+      assert {:ok, _deleted} = Shopping.delete_categorization(row)
+
+      assert Repo.get!(Section, dairy.id)
+      assert Repo.get!(Store, store.id)
+    end
+  end
+
   describe "list_items/0" do
     test "returns the persisted items in insertion order" do
       item!("Bananas")
