@@ -5,7 +5,15 @@ defmodule Pearview.ShoppingTest do
   import Pearview.ShoppingFixtures
 
   alias Pearview.Shopping
-  alias Pearview.Shopping.{Categorization, CategorizeUncategorized, Item, Section, Store}
+
+  alias Pearview.Shopping.{
+    Categorization,
+    CategorizeUncategorized,
+    Item,
+    Section,
+    Settings,
+    Store
+  }
 
   describe "list_stores/0" do
     test "returns every store in name order" do
@@ -98,6 +106,140 @@ defmodule Pearview.ShoppingTest do
 
       assert Repo.get(Section, produce.id) == nil
       assert Repo.get!(Item, item.id).section_id == nil
+    end
+
+    test "clears the selection when the deleted store was the selected one" do
+      %{store: store} = store_with_sections!()
+      assert Shopping.get_selected_store().id == store.id
+
+      assert {:ok, _deleted} = Shopping.delete_store(store)
+
+      assert Shopping.get_selected_store() == nil
+    end
+
+    test "leaves the selection alone when some other store is deleted" do
+      %{store: selected} = store_with_sections!()
+      other = store!("Lidl")
+
+      assert {:ok, _deleted} = Shopping.delete_store(other)
+
+      assert Shopping.get_selected_store().id == selected.id
+    end
+  end
+
+  describe "get_selected_store/0" do
+    test "returns nil when no store has been selected yet" do
+      store!("Lidl")
+
+      assert Shopping.get_selected_store() == nil
+    end
+
+    test "returns the store the singleton points at" do
+      store!("Aldi")
+      lidl = store!("Lidl")
+
+      refute_ai_called()
+      Shopping.select_store(lidl)
+
+      assert Shopping.get_selected_store().id == lidl.id
+    end
+  end
+
+  describe "select_store/1" do
+    setup :store_with_route
+
+    test "makes the given store the selected one", %{store: store} do
+      lidl = store!("Lidl")
+      refute_ai_called()
+
+      Shopping.select_store(lidl)
+
+      assert Shopping.get_selected_store().id == lidl.id
+      refute Shopping.get_selected_store().id == store.id
+    end
+
+    test "switching back and forth keeps one selection, never a second row", %{store: store} do
+      lidl = store!("Lidl")
+      refute_ai_called()
+
+      Shopping.select_store(lidl)
+      Shopping.select_store(store)
+
+      assert Shopping.get_selected_store().id == store.id
+      assert Repo.aggregate(Settings, :count) == 1
+    end
+
+    test "nulls every item's section so nothing keeps the old store's placement", %{
+      produce: produce,
+      dairy: dairy
+    } do
+      bananas = item!("Bananas", section_id: produce.id)
+      milk = item!("Milk", section_id: dairy.id)
+      lidl = store!("Lidl")
+      stub_ai([])
+
+      Shopping.select_store(lidl)
+
+      assert Repo.get!(Item, bananas.id).section_id == nil
+      assert Repo.get!(Item, milk.id).section_id == nil
+
+      await_background_tasks()
+    end
+
+    test "re-stamps the list from the new store's cache without calling the LLM", %{
+      produce: produce
+    } do
+      bananas = item!("Bananas", section_id: produce.id)
+
+      lidl = store!("Lidl")
+      lidl_fruit = section!(lidl, "Fruit & Veg")
+      categorization!(lidl, "bananas", section_id: lidl_fruit.id)
+      refute_ai_called()
+
+      assert Shopping.select_store(lidl) == :idle
+
+      assert Repo.get!(Item, bananas.id).section_id == lidl_fruit.id
+    end
+
+    test "groups the re-stamped list under the new store's route", %{produce: produce} do
+      item!("Bananas", section_id: produce.id)
+
+      lidl = store!("Lidl")
+      lidl_fruit = section!(lidl, "Fruit & Veg")
+      categorization!(lidl, "bananas", section_id: lidl_fruit.id)
+      refute_ai_called()
+
+      Shopping.select_store(lidl)
+
+      assert [{%{id: section_id}, [%{name: "Bananas"}]}] = Shopping.list_grouped_for_shopper()
+      assert section_id == lidl_fruit.id
+    end
+
+    test "leaves a name the new store has cached as unplaced in Other", %{produce: produce} do
+      capers = item!("Capers", section_id: produce.id)
+
+      lidl = store!("Lidl")
+      section!(lidl, "Fruit & Veg")
+      categorization!(lidl, "capers")
+      refute_ai_called()
+
+      assert Shopping.select_store(lidl) == :idle
+
+      assert Repo.get!(Item, capers.id).section_id == nil
+      assert [{:other, [%{name: "Capers"}]}] = Shopping.list_grouped_for_shopper()
+    end
+
+    test "hands names the new store has never seen to the background run, reporting :categorising",
+         %{produce: produce} do
+      item!("Bananas", section_id: produce.id)
+
+      lidl = store!("Lidl")
+      section!(lidl, "Fruit & Veg")
+      stub_ai([])
+
+      assert Shopping.select_store(lidl) == :categorising
+
+      await_background_tasks()
     end
   end
 
@@ -263,7 +405,8 @@ defmodule Pearview.ShoppingTest do
 
   describe "move_section/2" do
     setup do
-      store = store!("Lidl")
+      # Selected, so the grouped-list assertion below reads this store's route.
+      store = store!("Lidl") |> select!()
 
       %{
         store: store,
@@ -650,6 +793,36 @@ defmodule Pearview.ShoppingTest do
 
       refute Enum.any?(groups, fn {head, _} -> head == :other end)
     end
+
+    test "shows only the selected store's route, with another store's sections nowhere", %{
+      produce: produce
+    } do
+      lidl = store!("Lidl")
+      item!("Frozen peas", section_id: section!(lidl, "Frozen").id)
+      item!("Bananas", section_id: produce.id)
+
+      groups = Shopping.list_grouped_for_shopper()
+
+      names =
+        Enum.map(groups, fn {head, _} -> if head == :other, do: "Other", else: head.name end)
+
+      refute "Frozen" in names
+      assert names == ["Produce", "Other"]
+    end
+
+    test "keeps an item stamped for another store on the list, in Other" do
+      lidl = store!("Lidl")
+      item!("Frozen peas", section_id: section!(lidl, "Frozen").id)
+
+      assert [{:other, [%{name: "Frozen peas"}]}] = Shopping.list_grouped_for_shopper()
+    end
+
+    test "puts the whole list in Other when no store is selected", %{produce: produce} do
+      item!("Bananas", section_id: produce.id)
+      Repo.delete_all(Settings)
+
+      assert [{:other, [%{name: "Bananas"}]}] = Shopping.list_grouped_for_shopper()
+    end
   end
 
   describe "categorize_uncategorized/0" do
@@ -735,6 +908,30 @@ defmodule Pearview.ShoppingTest do
     test "is a no-op reporting :idle when there are no uncategorised items" do
       refute_ai_called()
       assert Shopping.categorize_uncategorized() == :idle
+    end
+
+    test "resolves against the selected store's cache, not another store's", %{produce: produce} do
+      # Same name, filed differently at each store: the answer must come from the
+      # store being shopped.
+      lidl = store!("Lidl") |> select!()
+      lidl_fruit = section!(lidl, "Fruit & Veg")
+      categorization!(lidl, "bananas", section_id: lidl_fruit.id)
+      categorization!(Repo.get!(Store, produce.store_id), "bananas", section_id: produce.id)
+
+      {:ok, item} = Shopping.add_item(%{"name" => "Bananas"})
+      refute_ai_called()
+
+      assert Shopping.categorize_uncategorized() == :idle
+      assert Repo.get!(Item, item.id).section_id == lidl_fruit.id
+    end
+
+    test "is a no-op reporting :idle while no store is selected" do
+      Repo.delete_all(Settings)
+      {:ok, item} = Shopping.add_item(%{"name" => "Bananas"})
+      refute_ai_called()
+
+      assert Shopping.categorize_uncategorized() == :idle
+      assert Repo.get!(Item, item.id).section_id == nil
     end
   end
 

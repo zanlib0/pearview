@@ -9,7 +9,7 @@ defmodule Pearview.ShoppingFixtures do
 
   alias Pearview.Repo
   alias Pearview.Shopping
-  alias Pearview.Shopping.{Categorization, Item, Section, Store}
+  alias Pearview.Shopping.{Categorization, Item, Section, Settings, Store}
 
   @doc """
   Inserts an Item, deriving `normalized_name` from `name` the same way
@@ -64,12 +64,27 @@ defmodule Pearview.ShoppingFixtures do
   end
 
   @doc """
+  Points the settings singleton at `store`, making it the Selected store,
+  without the re-resolve `Shopping.select_store/1` does — arrange-phase only.
+  """
+  def select!(%Store{} = store) do
+    Repo.insert!(
+      %Settings{id: Settings.singleton_id(), selected_store_id: store.id},
+      on_conflict: [set: [selected_store_id: store.id]],
+      conflict_target: :id
+    )
+
+    store
+  end
+
+  @doc """
   Inserts the canonical two-section test store: "Produce" (position 1) and
-  "Dairy & Eggs" (position 2), each with AI hints. Returns
+  "Dairy & Eggs" (position 2), each with AI hints, and makes it the **Selected
+  store** — it is the store being shopped. Returns
   `%{store: store, produce: produce, dairy: dairy}`.
   """
   def store_with_sections! do
-    store = Repo.insert!(%Store{name: "Test Store"})
+    store = Repo.insert!(%Store{name: "Test Store"}) |> select!()
 
     produce =
       Repo.insert!(%Section{name: "Produce", position: 1, store_id: store.id, hints: "fruit"})

@@ -13,7 +13,65 @@ defmodule Pearview.Shopping do
   import Ecto.Query, warn: false
 
   alias Pearview.Repo
-  alias Pearview.Shopping.{Categorization, CategorizeUncategorized, Item, Section, Store}
+
+  alias Pearview.Shopping.{
+    Categorization,
+    CategorizeUncategorized,
+    Item,
+    Section,
+    Settings,
+    Store
+  }
+
+  @doc """
+  Returns the **Selected store** — the one Store the Shopper is currently
+  walking — or `nil` when nothing is selected yet (no settings row, or a row
+  pointing nowhere because the selected store was deleted).
+
+  The selection is a single app-wide value, shared across both phones; it is
+  what tells the Shopper view which Route to render and the categorisation
+  orchestration which store to resolve against.
+  """
+  def get_selected_store do
+    Repo.one(
+      from s in Settings,
+        where: s.id == ^Settings.singleton_id(),
+        join: store in assoc(s, :store),
+        select: store
+    )
+  end
+
+  @doc """
+  Makes `store` the Selected store and re-resolves the whole list against its
+  Route:
+
+    1. upserts the settings singleton to point at `store`;
+    2. **nulls `section_id` on every Item**, so no stale placement from the
+       store we were shopping before survives;
+    3. re-runs `categorize_uncategorized/0` against the new store — cache-first,
+       so a warm cache re-stamps the list without touching the LLM.
+
+  An item's `section_id` therefore always means "its section at the store I am
+  currently shopping". Names this store has never seen go to the background LLM
+  pass and sit in Other until it finishes, exactly as on a normal open.
+
+  Returns `:categorising` or `:idle`, the same signal `categorize_uncategorized/0`
+  gives: whether a background run was started for this switch.
+  """
+  def select_store(%Store{} = store) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    %Settings{}
+    |> Settings.changeset(%{selected_store_id: store.id})
+    |> Repo.insert!(
+      on_conflict: [set: [selected_store_id: store.id, updated_at: now]],
+      conflict_target: :id
+    )
+
+    Repo.update_all(Item, set: [section_id: nil, updated_at: now])
+
+    categorize_uncategorized()
+  end
 
   @doc """
   Returns every Store, in name order — the Manage view's store list and (later)
@@ -54,6 +112,10 @@ defmodule Pearview.Shopping do
   FKs cascade), so no stale knowledge lingers for a store we no longer shop.
   Items keep their place on the list with `section_id` nilified, so they
   re-resolve against whichever store is shopped next.
+
+  If it was the **Selected store**, the selection is cleared (the settings FK
+  nilifies) rather than pointing at a store that no longer exists — the Shopper
+  simply picks again.
   """
   def delete_store(%Store{} = store), do: Repo.delete(store)
 
@@ -198,30 +260,37 @@ defmodule Pearview.Shopping do
 
   @doc """
   Returns the shopping list grouped for the Shopper view: a list of
-  `{%Section{}, items}` tuples in route (position) order, each containing that
-  section's items ordered by insertion time, followed by a single
-  `{:other, items}` tuple (pinned last) for items that have no section yet.
-  Empty sections and an empty Other bucket are omitted.
+  `{%Section{}, items}` tuples in the **Selected store's** route (position)
+  order, each containing that section's items ordered by insertion time,
+  followed by a single `{:other, items}` tuple (pinned last). Empty sections and
+  an empty Other bucket are omitted.
+
+  Other holds everything the Selected store's Route does not account for:
+  uncategorised items, and any item still stamped with another store's section
+  (a window `select_store/1` closes, but nothing may ever vanish from the list).
+  With no store selected the whole list is Other.
   """
   def list_grouped_for_shopper do
-    item_query = from(i in Item, order_by: [asc: i.inserted_at, asc: i.id])
-
-    sections =
-      Section
-      |> order_by(asc: :position)
-      |> preload(items: ^item_query)
-      |> Repo.all()
-
-    other_items =
+    items =
       Item
-      |> where([i], is_nil(i.section_id))
       |> order_by(asc: :inserted_at, asc: :id)
       |> Repo.all()
 
+    sections =
+      case get_selected_store() do
+        nil -> []
+        store -> list_sections(store)
+      end
+
+    items_by_section = Enum.group_by(items, & &1.section_id)
+
     section_groups =
       sections
-      |> Enum.map(&{&1, &1.items})
-      |> Enum.reject(fn {_s, items} -> items == [] end)
+      |> Enum.map(&{&1, Map.get(items_by_section, &1.id, [])})
+      |> Enum.reject(fn {_section, items} -> items == [] end)
+
+    on_route = MapSet.new(sections, & &1.id)
+    other_items = Enum.reject(items, &MapSet.member?(on_route, &1.section_id))
 
     if other_items == [] do
       section_groups

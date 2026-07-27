@@ -1,6 +1,7 @@
 defmodule Pearview.Shopping.CategorizeUncategorized do
   @moduledoc """
-  Resolves every uncategorised Item (`section_id` nil) against the store's Route,
+  Resolves every uncategorised Item (`section_id` nil) against the **Selected
+  store's** Route,
   **cache first, LLM second**, stamping the resulting `section_id` onto the
   matching items. This is the categorisation orchestration triggered on
   Shopper-view open; `Pearview.Shopping` delegates to it.
@@ -38,8 +39,8 @@ defmodule Pearview.Shopping.CategorizeUncategorized do
     * `:categorising` when a background LLM run was started for this request —
       the caller renders the "Categorising" note and the missed items stay in
       Other until the next request picks them up.
-    * `:idle` otherwise: no store, nothing uncategorised, or every name resolved
-      straight from the cache.
+    * `:idle` otherwise: no store selected, nothing uncategorised, or every name
+      resolved straight from the cache.
   """
   def call do
     with %Store{} = store <- current_store(),
@@ -93,9 +94,11 @@ defmodule Pearview.Shopping.CategorizeUncategorized do
     end)
   end
 
-  defp current_store do
-    Repo.one(from s in Store, order_by: [asc: s.id], limit: 1)
-  end
+  # The store being shopped is the Selected store (`Pearview.Shopping`'s
+  # singleton), not "the first store by id" — with several stores set up, which
+  # Route a name is resolved against has to be the Shopper's choice. Nothing is
+  # resolved while no store is selected.
+  defp current_store, do: Pearview.Shopping.get_selected_store()
 
   defp route_sections(%Store{id: store_id}) do
     Section
