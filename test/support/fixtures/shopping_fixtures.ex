@@ -7,7 +7,7 @@ defmodule Pearview.ShoppingFixtures do
 
   alias Pearview.Repo
   alias Pearview.Shopping
-  alias Pearview.Shopping.{Item, Section, Store}
+  alias Pearview.Shopping.{Categorization, Item, Section, Store}
 
   @doc """
   Inserts an Item, deriving `normalized_name` from `name` the same way
@@ -20,6 +20,24 @@ defmodule Pearview.ShoppingFixtures do
       normalized_name: Shopping.normalize_name(name),
       status: Keyword.get(opts, :status, :pending),
       section_id: Keyword.get(opts, :section_id)
+    })
+  end
+
+  @doc """
+  Inserts a bare Store (no Sections) with the given name.
+  """
+  def store!(name), do: Repo.insert!(%Store{name: name})
+
+  @doc """
+  Inserts a Categorization cache row for a store. Opts: `:section_id` (default
+  `nil`, i.e. the "asked, unplaced" row).
+  """
+  def categorization!(%Store{} = store, normalized_name, opts \\ []) do
+    Repo.insert!(%Categorization{
+      store_id: store.id,
+      normalized_name: normalized_name,
+      section_id: Keyword.get(opts, :section_id),
+      source: :ai
     })
   end
 

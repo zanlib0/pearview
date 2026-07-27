@@ -7,6 +7,100 @@ defmodule Pearview.ShoppingTest do
   alias Pearview.Shopping
   alias Pearview.Shopping.{Categorization, CategorizeUncategorized, Item, Section, Store}
 
+  describe "list_stores/0" do
+    test "returns every store in name order" do
+      store!("Lidl")
+      store!("Aldi")
+
+      assert Shopping.list_stores() |> Enum.map(& &1.name) == ["Aldi", "Lidl"]
+    end
+
+    test "returns an empty list when there are no stores" do
+      assert Shopping.list_stores() == []
+    end
+  end
+
+  describe "create_store/1" do
+    test "creates a store from the given name" do
+      assert {:ok, %Store{} = store} = Shopping.create_store(%{"name" => "Lidl"})
+
+      assert store.name == "Lidl"
+      assert Repo.get!(Store, store.id).name == "Lidl"
+    end
+
+    test "creates the store with no sections — its route is built separately" do
+      assert {:ok, store} = Shopping.create_store(%{"name" => "Lidl"})
+
+      assert Repo.all(from(s in Section, where: s.store_id == ^store.id)) == []
+    end
+
+    test "rejects a blank name" do
+      assert {:error, changeset} = Shopping.create_store(%{"name" => "   "})
+      refute changeset.valid?
+      assert Repo.all(Store) == []
+    end
+  end
+
+  describe "update_store/2" do
+    test "renames the store" do
+      store = store!("Lidl")
+
+      assert {:ok, updated} = Shopping.update_store(store, %{"name" => "Lidl Nové Butovice"})
+
+      assert updated.id == store.id
+      assert Repo.get!(Store, store.id).name == "Lidl Nové Butovice"
+    end
+
+    test "rejects a blank name and leaves the store unchanged" do
+      store = store!("Lidl")
+
+      assert {:error, changeset} = Shopping.update_store(store, %{"name" => "   "})
+      refute changeset.valid?
+      assert Repo.get!(Store, store.id).name == "Lidl"
+    end
+  end
+
+  describe "delete_store/1" do
+    test "deletes the store" do
+      store = store!("Lidl")
+
+      assert {:ok, _deleted} = Shopping.delete_store(store)
+      assert Repo.get(Store, store.id) == nil
+    end
+
+    test "discards that store's cached categorizations" do
+      %{store: store, produce: produce} = store_with_sections!()
+      placed = categorization!(store, "bananas", section_id: produce.id)
+      unplaced = categorization!(store, "capers")
+
+      assert {:ok, _deleted} = Shopping.delete_store(store)
+
+      assert Repo.get(Categorization, placed.id) == nil
+      assert Repo.get(Categorization, unplaced.id) == nil
+    end
+
+    test "leaves another store's cache untouched" do
+      %{store: store} = store_with_sections!()
+      other = store!("Lidl")
+      kept = categorization!(other, "bananas")
+      categorization!(store, "bananas")
+
+      assert {:ok, _deleted} = Shopping.delete_store(store)
+
+      assert Repo.get(Categorization, kept.id)
+    end
+
+    test "deletes the store's sections but keeps its items, uncategorised" do
+      %{store: store, produce: produce} = store_with_sections!()
+      item = item!("Bananas", section_id: produce.id)
+
+      assert {:ok, _deleted} = Shopping.delete_store(store)
+
+      assert Repo.get(Section, produce.id) == nil
+      assert Repo.get!(Item, item.id).section_id == nil
+    end
+  end
+
   describe "list_items/0" do
     test "returns the persisted items in insertion order" do
       item!("Bananas")

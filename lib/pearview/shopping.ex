@@ -3,15 +3,58 @@ defmodule Pearview.Shopping do
   The Shopping context: all data access for the shared shopping list — Stores,
   their route Sections, and the Items on the list.
 
-  Later phases extend this context with item add/edit/delete and the AI
-  categorisation orchestration (see `docs/prd/00-minimal-ai-shopping-loop.md`).
-  For Phase 1 the read path is enough.
+  It covers the Operator's list editing, the Shopper's route-ordered read path,
+  the AI categorisation orchestration (see
+  `docs/prd/00-minimal-ai-shopping-loop.md`) and the Manage surface's Store
+  maintenance (see `docs/prd/01-multi-store-and-manage.md`).
   """
 
   import Ecto.Query, warn: false
 
   alias Pearview.Repo
-  alias Pearview.Shopping.{CategorizeUncategorized, Item, Section}
+  alias Pearview.Shopping.{CategorizeUncategorized, Item, Section, Store}
+
+  @doc """
+  Returns every Store, in name order — the Manage view's store list and (later)
+  the Shopper's store picker.
+  """
+  def list_stores do
+    Store
+    |> order_by(asc: :name, asc: :id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Fetches a single Store by id, raising `Ecto.NoResultsError` if it is missing.
+  """
+  def get_store!(id), do: Repo.get!(Store, id)
+
+  @doc """
+  Creates a Store from a name typed by the Operator in Manage. The new Store has
+  no Sections yet — its Route is built separately.
+  """
+  def create_store(attrs) when is_map(attrs) do
+    %Store{}
+    |> Store.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Renames a Store.
+  """
+  def update_store(%Store{} = store, attrs) when is_map(attrs) do
+    store
+    |> Store.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a Store. Its Sections and its cached Categorizations go with it (both
+  FKs cascade), so no stale knowledge lingers for a store we no longer shop.
+  Items keep their place on the list with `section_id` nilified, so they
+  re-resolve against whichever store is shopped next.
+  """
+  def delete_store(%Store{} = store), do: Repo.delete(store)
 
   @doc """
   Returns the shopping list grouped for the Shopper view: a list of
