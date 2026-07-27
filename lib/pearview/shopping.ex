@@ -74,8 +74,8 @@ defmodule Pearview.Shopping do
   end
 
   @doc """
-  Returns every Store, in name order — the Manage view's store list and (later)
-  the Shopper's store picker.
+  Returns every Store, in name order — the Manage view's store list and the
+  Shopper's store dropdown.
   """
   def list_stores do
     Store

@@ -24,6 +24,7 @@ defmodule PearviewWeb.Router do
     delete "/items/:id", ItemController, :delete
 
     get "/shopper", ShopperController, :index
+    post "/shopper/store", ShopperController, :select_store
     patch "/shopper/items/:id/cycle", ShopperController, :cycle
     post "/shopper/trip/end", ShopperController, :end_trip
 

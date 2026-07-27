@@ -18,6 +18,156 @@ defmodule PearviewWeb.ShopperControllerTest do
     fixtures
   end
 
+  describe "the store dropdown" do
+    test "GET /shopper renders every store, with the selected one chosen", %{
+      conn: conn,
+      store: store
+    } do
+      lidl = store!("Lidl")
+
+      body = conn |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ "Test Store"
+      assert body =~ "Lidl"
+      assert body =~ ~r/<option[^>]*value="#{store.id}"[^>]*selected/
+      refute body =~ ~r/<option[^>]*value="#{lidl.id}"[^>]*selected/
+    end
+
+    test "GET /shopper asks for a pick when nothing is selected", %{conn: conn, store: store} do
+      Repo.delete_all(Pearview.Shopping.Settings)
+
+      body = conn |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ ~s(<option value="" disabled selected>Pick a store</option>)
+      refute body =~ ~r/<option[^>]*value="#{store.id}"[^>]*selected/
+    end
+
+    test "GET /shopper points at manage when there are no stores at all", %{conn: conn} do
+      Repo.delete_all(Pearview.Shopping.Store)
+
+      body = conn |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ "No stores yet"
+      refute body =~ "<select"
+    end
+  end
+
+  describe "POST /shopper/store" do
+    test "makes the chosen store the selected one", %{conn: conn} do
+      lidl = store!("Lidl")
+      refute_ai_called()
+
+      post(conn, ~p"/shopper/store", %{"store_id" => lidl.id})
+
+      assert Shopping.get_selected_store().id == lidl.id
+    end
+
+    test "re-groups the list under the new store's route, resolving from its cache", %{
+      conn: conn,
+      produce: produce
+    } do
+      bananas = item!("Bananas", section_id: produce.id)
+      lidl = store!("Lidl")
+      fruit = section!(lidl, "Fruit & Veg")
+      categorization!(lidl, "bananas", section_id: fruit.id)
+      refute_ai_called()
+
+      conn = post(conn, ~p"/shopper/store", %{"store_id" => lidl.id})
+      body = html_response(conn, 200)
+
+      assert body =~ "Fruit &amp; Veg"
+      assert body =~ "Bananas"
+      refute body =~ "Produce"
+      refute body =~ "Categorising"
+      assert Repo.get!(Item, bananas.id).section_id == fruit.id
+    end
+
+    test "leaves a name the new store cannot place in Other", %{conn: conn, produce: produce} do
+      capers = item!("Capers", section_id: produce.id)
+      lidl = store!("Lidl")
+      section!(lidl, "Fruit & Veg")
+      categorization!(lidl, "capers")
+      refute_ai_called()
+
+      conn = post(conn, ~p"/shopper/store", %{"store_id" => lidl.id})
+      body = html_response(conn, 200)
+
+      assert body =~ "Other"
+      assert body =~ "Capers"
+      assert Repo.get!(Item, capers.id).section_id == nil
+    end
+
+    test "shows the Categorising note for names the new store has never seen", %{
+      conn: conn,
+      produce: produce
+    } do
+      item!("Bananas", section_id: produce.id)
+      lidl = store!("Lidl")
+      section!(lidl, "Fruit & Veg")
+
+      conn = post(conn, ~p"/shopper/store", %{"store_id" => lidl.id})
+      body = html_response(conn, 200)
+
+      assert body =~ "Categorising"
+      assert body =~ "Bananas"
+
+      Pearview.DataCase.await_background_tasks()
+    end
+
+    test "returns only the list fragment, not the full page", %{conn: conn} do
+      lidl = store!("Lidl")
+      refute_ai_called()
+
+      conn = post(conn, ~p"/shopper/store", %{"store_id" => lidl.id})
+      body = html_response(conn, 200)
+
+      refute body =~ "<html"
+      refute body =~ "pearview"
+      refute body =~ "<select"
+    end
+
+    test "the selection survives a later refetch, as on a lock/unlock", %{conn: conn} do
+      lidl = store!("Lidl")
+      section!(lidl, "Frozen")
+      refute_ai_called()
+
+      post(conn, ~p"/shopper/store", %{"store_id" => lidl.id})
+      body = build_conn() |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ ~r/<option[^>]*value="#{lidl.id}"[^>]*selected/
+    end
+
+    test "a plain GET afterwards does not re-null what the switch placed", %{
+      conn: conn,
+      produce: produce
+    } do
+      bananas = item!("Bananas", section_id: produce.id)
+      lidl = store!("Lidl")
+      fruit = section!(lidl, "Fruit & Veg")
+      categorization!(lidl, "bananas", section_id: fruit.id)
+      refute_ai_called()
+
+      post(conn, ~p"/shopper/store", %{"store_id" => lidl.id})
+      body = build_conn() |> get(~p"/shopper") |> html_response(200)
+
+      assert body =~ "Fruit &amp; Veg"
+      assert Repo.get!(Item, bananas.id).section_id == fruit.id
+    end
+  end
+
+  test "GET /shopper leaves already-placed items where they are", %{
+    conn: conn,
+    produce: produce
+  } do
+    bananas = item!("Bananas", section_id: produce.id)
+    refute_ai_called()
+
+    body = conn |> get(~p"/shopper") |> html_response(200)
+
+    assert body =~ "Produce"
+    assert Repo.get!(Item, bananas.id).section_id == produce.id
+  end
+
   test "GET /shopper renders section headings in route order", %{
     conn: conn,
     produce: produce,

@@ -1,3 +1,7 @@
+<span :if={@categorising?} class="cancel-stamp categorising-note" data-accent="amber">
+  Categorising
+</span>
+
 <%= for {head, items} <- @groups do %>
   <section class="route-section">
     <h2 class="section-heading t-eyebrow">

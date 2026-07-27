@@ -129,6 +129,13 @@
 }
 
 /* Shopper view: route-ordered grouped list with tap-to-cycle status. */
+
+/* Which store is being walked. The field is a sealed Masthead component; the
+ * caller only places the form on the page (sealed-box rule). */
+.store-picker {
+  margin: var(--space-6) 0 var(--space-2);
+}
+
 .route-section {
   margin-top: var(--space-5);
 }

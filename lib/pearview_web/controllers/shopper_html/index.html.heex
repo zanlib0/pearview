@@ -8,12 +8,38 @@
     </nav>
   </header>
 
-  <span :if={@categorising?} class="cancel-stamp categorising-note" data-accent="amber">
-    Categorising
-  </span>
+  <%= if @stores == [] do %>
+    <p class="empty-note t-body">
+      No stores yet — set one up in <a class="text-link" href={~p"/manage"}>manage</a>
+      to shop a route.
+    </p>
+  <% else %>
+    <form
+      class="store-picker"
+      hx-post={~p"/shopper/store"}
+      hx-trigger="change"
+      hx-target="#shopper-list"
+      hx-swap="innerHTML"
+    >
+      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <div class="form-field">
+        <label class="label" for="store_id">Shopping at</label>
+        <select class="input" id="store_id" name="store_id">
+          <option :if={is_nil(@selected_store)} value="" disabled selected>Pick a store</option>
+          <option
+            :for={store <- @stores}
+            value={store.id}
+            selected={@selected_store && store.id == @selected_store.id}
+          >
+            {store.name}
+          </option>
+        </select>
+      </div>
+    </form>
+  <% end %>
 
   <div id="shopper-list">
-    <.shopper_list groups={@groups} />
+    <.shopper_list groups={@groups} categorising?={@categorising?} />
   </div>
 
   <button
