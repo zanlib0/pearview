@@ -180,8 +180,9 @@ defmodule PearviewWeb.ManageController do
   end
 
   # The store-scoped panels each show one store at a time. Which one is a view
-  # concern for now: the requested store if it still exists, else the first
-  # store by name. (The Shopper's Selected store is a separate, later slice.)
+  # concern, deliberately separate from the Shopper's Selected store: the
+  # requested store if it still exists, else the first store by name. Maintaining
+  # a store's route at home must not change which store is being shopped.
   defp index_assigns(params) do
     {stores, store} = scoped_store(params)
 

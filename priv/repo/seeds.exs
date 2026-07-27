@@ -2,8 +2,9 @@
 #
 #     mix run priv/repo/seeds.exs
 #
-# It seeds the single shared store and its Route (ordered Sections with hints).
-# The Route definition itself lives in `Pearview.Release.seed_data/0` so dev and
+# It seeds the shared stores, each with its own Route (ordered Sections with
+# hints), and points the Selected store at the first of them. The Route
+# definitions themselves live in `Pearview.Release.seed_data/0` so dev and
 # production seed from one source. This script first clears the existing data so
 # re-running is a clean reset — safe for `mix ecto.setup` / `mix ecto.reset`.
 #
