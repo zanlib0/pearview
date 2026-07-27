@@ -31,6 +31,12 @@ defmodule PearviewWeb.Router do
     post "/manage/stores", ManageController, :create_store
     patch "/manage/stores/:id", ManageController, :update_store
     delete "/manage/stores/:id", ManageController, :delete_store
+
+    get "/manage/sections", ManageController, :sections
+    post "/manage/stores/:store_id/sections", ManageController, :create_section
+    patch "/manage/sections/:id", ManageController, :update_section
+    patch "/manage/sections/:id/move", ManageController, :move_section
+    delete "/manage/sections/:id", ManageController, :delete_section
   end
 
   # Other scopes may use custom stacks.

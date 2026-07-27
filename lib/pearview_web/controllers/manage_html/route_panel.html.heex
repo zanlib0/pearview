@@ -1,0 +1,51 @@
+<div
+  id="route-panel"
+  hx-get={if @store, do: ~p"/manage/sections?store_id=#{@store.id}", else: ~p"/manage/sections"}
+  hx-trigger="stores-changed from:body"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <%= if @store do %>
+    <div class="store-tabs" role="group" aria-label="Store whose route is shown">
+      <button
+        :for={store <- @stores}
+        type="button"
+        class={["stamp-button", "-small", store.id == @store.id && "-accent"]}
+        aria-pressed={to_string(store.id == @store.id)}
+        hx-get={~p"/manage/sections?store_id=#{store.id}"}
+        hx-target="#route-panel"
+        hx-swap="outerHTML"
+      >
+        {store.name}
+      </button>
+    </div>
+
+    <form
+      class="add-item"
+      hx-post={~p"/manage/stores/#{@store.id}/sections"}
+      hx-target="#section-list"
+      hx-swap="outerHTML"
+      hx-on::after-request="if (event.detail.successful) this.reset()"
+    >
+      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <div class="form-field add-item-field">
+        <label class="label" for="section_name">Add a section to {@store.name}</label>
+        <input
+          class="input"
+          id="section_name"
+          name="section[name]"
+          type="text"
+          autocomplete="off"
+          required
+        />
+      </div>
+      <button class="stamp-button -accent" type="submit">Add</button>
+    </form>
+
+    <.section_list sections={@sections} />
+
+    <p class="empty-note t-body">No sections yet — {@store.name} has no route to walk.</p>
+  <% else %>
+    <p class="empty-note t-body">Add a store first, then build its route here.</p>
+  <% end %>
+</div>

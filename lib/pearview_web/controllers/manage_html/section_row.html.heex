@@ -1,0 +1,71 @@
+<li id={"section-#{@section.id}"} class="item-row section-row">
+  <div class="section-move">
+    <button
+      type="button"
+      class="section-move-button"
+      aria-label={"Move #{@section.name} earlier in the route"}
+      title="Move up"
+      hx-patch={~p"/manage/sections/#{@section.id}/move?direction=up"}
+      hx-target="#section-list"
+      hx-swap="outerHTML"
+    >
+      ↑
+    </button>
+    <button
+      type="button"
+      class="section-move-button"
+      aria-label={"Move #{@section.name} later in the route"}
+      title="Move down"
+      hx-patch={~p"/manage/sections/#{@section.id}/move?direction=down"}
+      hx-target="#section-list"
+      hx-swap="outerHTML"
+    >
+      ↓
+    </button>
+  </div>
+  <div class="section-fields">
+    <label class="_sr-only" for={"section_name_#{@section.id}"}>Section name</label>
+    <input
+      class="item-name-input"
+      id={"section_name_#{@section.id}"}
+      name="section[name]"
+      type="text"
+      value={@section.name}
+      autocomplete="off"
+      required
+      hx-patch={~p"/manage/sections/#{@section.id}"}
+      hx-target={"#section-#{@section.id}"}
+      hx-swap="outerHTML"
+      hx-trigger="change, keyup[key=='Enter']"
+    />
+    <label class="_sr-only" for={"section_hints_#{@section.id}"}>
+      Hints for {@section.name}
+    </label>
+    <input
+      class="item-name-input section-hints-input"
+      id={"section_hints_#{@section.id}"}
+      name="section[hints]"
+      type="text"
+      value={@section.hints}
+      placeholder="Hints — example products the AI files here"
+      autocomplete="off"
+      hx-patch={~p"/manage/sections/#{@section.id}"}
+      hx-target={"#section-#{@section.id}"}
+      hx-swap="outerHTML"
+      hx-trigger="change, keyup[key=='Enter']"
+    />
+  </div>
+  <button
+    type="button"
+    class="item-delete"
+    aria-label={"Delete #{@section.name}"}
+    title="Delete"
+    hx-delete={~p"/manage/sections/#{@section.id}"}
+    hx-target={"#section-#{@section.id}"}
+    hx-swap="outerHTML"
+    hx-confirm={"Delete #{@section.name}? Its items stay on the list and re-sort on the next open."}
+    data-accent="ruby"
+  >
+    ×
+  </button>
+</li>

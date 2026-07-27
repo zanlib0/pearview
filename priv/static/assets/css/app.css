@@ -122,7 +122,8 @@
 /* Once the list holds a row — including one just appended by HTMX — the
  * "nothing yet" note has nothing to say. */
 #item-list:has(.item-row) ~ .empty-note,
-#store-list:has(.item-row) ~ .empty-note {
+#store-list:has(.item-row) ~ .empty-note,
+#section-list:has(.item-row) ~ .empty-note {
   display: none;
 }
 
@@ -204,4 +205,80 @@
  * name field starts at the page edge. */
 .store-row {
   gap: var(--space-2);
+}
+
+.panel-note {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-2);
+}
+
+/* Which store's route is on show. Stamp buttons are sealed components; the
+ * caller only places them and owns the gap between them. */
+.store-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* A route row is taller than a list row: the section name sits above its hints,
+ * with the reorder controls at the leading edge and delete at the trailing one. */
+.section-row {
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.section-row + .section-row {
+  border-top: var(--rule-1) solid var(--rule-soft);
+}
+
+.section-fields {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hints are secondary to the name — smaller, fainter, same inline-edit affordance. */
+.section-hints-input {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.section-hints-input::placeholder {
+  color: var(--ink-3);
+}
+
+/* Stacked ↑/↓ nudges: the same quiet, bare-glyph control as .item-delete, sized
+ * for a thumb but printed rather than framed. */
+.section-move {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-move-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.section-move-button:hover,
+.section-move-button:focus-visible {
+  color: var(--accent);
+}
+
+.section-move-button:focus-visible {
+  outline: var(--rule-1) solid var(--accent);
+  outline-offset: var(--space-1);
 }
