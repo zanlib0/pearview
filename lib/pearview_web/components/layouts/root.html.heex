@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title default="Pearview" phx-no-format>{assigns[:page_title]}</.live_title>
+    <link rel="icon" href={~p"/favicon.ico"} sizes="32x32" />
+    <link rel="icon" type="image/png" href={~p"/images/favicon-96.png"} sizes="96x96" />
+    <link rel="apple-touch-icon" href={~p"/images/apple-touch-icon.png"} />
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/zanlib0/masthead/dist/masthead.min.css"

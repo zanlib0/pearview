@@ -1,4 +1,8 @@
-# Pearview
+<p align="center">
+  <img src="priv/static/images/pearview.png" alt="Pearview" width="256" />
+</p>
+
+<h1 align="center">Pearview</h1>
 
 Pearview is a shopping-list app for a two-person household whose distinguishing feature is a route-ordered, AI-categorised list: items are grouped and ordered by the sections of whichever store the shopper picks, so the list follows the walk through that store.
 
