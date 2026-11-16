@@ -8,7 +8,6 @@ The stack is Elixir + Phoenix + HTMX (NOT LiveView).
 
 The application uses the Masthead design system which is a custom design system.
 
-- For detailed, agent-specific usage guide, use the `/masthead` skill for a cheat sheet.
 - If specific design guidelines are needed (you are not sure what direction drive the design or add custom caller code), fetch https://raw.githubusercontent.com/zanlib0/masthead/refs/heads/master/DESIGN.md which contains design direction.
 - For example usage (if you are not sure how to use specific classes), fetch https://raw.githubusercontent.com/zanlib0/masthead/refs/heads/master/index.html which contains a in-situ showcase of how the elements are used.
 
