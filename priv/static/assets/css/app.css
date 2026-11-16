@@ -17,8 +17,8 @@
   margin: var(--space-8) 0 var(--space-4);
 }
 
-/* Operator add-item form: a full-width entry field with the stamp button
- * beneath it, comfortable to reach one-handed on a phone. */
+/* Operator add-item form: a full-width entry field with the press button
+ * beside it, comfortable to reach one-handed on a phone. */
 .add-item {
   display: flex;
   flex-direction: row;
@@ -30,8 +30,8 @@
   margin: 0;
 }
 
-.add-item .stamp-button {
-  align-self: flex-start;
+.add-item .press-button {
+  align-self: flex-end;
 }
 
 /* The flat shopping list. Hairline-ruled rows with generous touch targets. */
@@ -62,7 +62,7 @@
   flex: 1 1 auto;
   min-width: 0;
   font-family: inherit;
-  font-size: var(--text-base);
+  font-size: var(--text-ui);
   color: var(--ink);
   background: transparent;
   border: 0;
@@ -77,34 +77,6 @@
 .item-name-input:focus {
   outline: none;
   border-bottom-color: var(--accent);
-}
-
-/* A bare ✕ at the trailing edge — quieter than a labelled button, ruby on
- * hover via the row's own data-accent. Caller-layer control (bucket 1). */
-.item-delete {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-7);
-  height: var(--space-7);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink-3);
-  font-size: var(--text-lede);
-  line-height: 1;
-  cursor: pointer;
-}
-
-.item-delete:hover,
-.item-delete:focus-visible {
-  color: var(--accent);
-}
-
-.item-delete:focus-visible {
-  outline: var(--rule-1) solid var(--accent);
-  outline-offset: var(--space-1);
 }
 
 /* Done (checked-off) and not-available items both read as struck through. */
@@ -168,6 +140,7 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
+  padding: var(--space-2) 0;
   cursor: pointer;
 }
 
@@ -177,12 +150,12 @@
 }
 
 /* checked: struck name. not_available: struck name, muted — store didn't have it. */
-.shopper-item[data-status="checked"] .t-body,
-.shopper-item[data-status="not_available"] .t-body {
+.shopper-item[data-status="checked"] .shopper-name,
+.shopper-item[data-status="not_available"] .shopper-name {
   text-decoration: line-through;
 }
 
-.shopper-item[data-status="not_available"] .t-body {
+.shopper-item[data-status="not_available"] .shopper-name {
   color: var(--ink-3);
 }
 
@@ -215,7 +188,7 @@
   gap: var(--space-2);
 }
 
-/* Which store's route is on show. Stamp buttons are sealed components; the
+/* Which store's route is on show. Press buttons are sealed components; the
  * caller only places them and owns the gap between them. */
 .store-tabs {
   display: flex;
@@ -239,9 +212,8 @@
   flex-direction: column;
 }
 
-/* Hints are secondary to the name — smaller, fainter, same inline-edit affordance. */
+/* Hints are secondary to the name — fainter, same inline-edit affordance. */
 .section-hints-input {
-  font-size: var(--text-sm);
   color: var(--ink-2);
 }
 
@@ -249,37 +221,11 @@
   color: var(--ink-3);
 }
 
-/* Stacked ↑/↓ nudges: the same quiet, bare-glyph control as .item-delete, sized
- * for a thumb but printed rather than framed. */
+/* Stacked ↑/↓ nudges: quiet icon buttons, one above the other. */
 .section-move {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-}
-
-.section-move-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink-3);
-  font-size: var(--text-sm);
-  line-height: 1;
-  cursor: pointer;
-}
-
-.section-move-button:hover,
-.section-move-button:focus-visible {
-  color: var(--accent);
-}
-
-.section-move-button:focus-visible {
-  outline: var(--rule-1) solid var(--accent);
-  outline-offset: var(--space-1);
 }
 
 /* A cache row reads as one line of a ledger: the known name at the leading edge,
@@ -309,5 +255,5 @@
 /* A name the AI could not file falls through to Other on every trip — the one
  * thing in this list worth flagging, so it takes the warn ink. */
 .cache-placement.-unplaced {
-  color: var(--warn);
+  color: var(--warn-ink);
 }

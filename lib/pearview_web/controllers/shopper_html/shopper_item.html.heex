@@ -13,7 +13,7 @@
       checked={@item.status == :checked}
       tabindex="-1"
     />
-    <span class={["t-body", @item.status in [:checked, :not_available] && "-struck"]}>
+    <span class={["shopper-name", @item.status in [:checked, :not_available] && "-struck"]}>
       {@item.name}
     </span>
   </label>

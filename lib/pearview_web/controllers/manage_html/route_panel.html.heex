@@ -10,7 +10,7 @@
       <button
         :for={store <- @stores}
         type="button"
-        class={["stamp-button", "-small", store.id == @store.id && "-accent"]}
+        class="press-button -small"
         aria-pressed={to_string(store.id == @store.id)}
         hx-get={~p"/manage/sections?store_id=#{store.id}"}
         hx-target="#route-panel"
@@ -39,7 +39,7 @@
           required
         />
       </div>
-      <button class="stamp-button -accent" type="submit">Add</button>
+      <button class="press-button -accent" type="submit">Add</button>
     </form>
 
     <.section_list sections={@sections} />

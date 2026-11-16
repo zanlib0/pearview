@@ -4,7 +4,7 @@
 
 <%= for {head, items} <- @groups do %>
   <section class="route-section">
-    <h2 class="section-heading t-eyebrow">
+    <h2 class="section-heading t-subhead">
       {if head == :other, do: "Other", else: head.name}
     </h2>
     <ul class="shopper-list">

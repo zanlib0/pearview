@@ -15,15 +15,23 @@
   />
   <button
     type="button"
-    class="item-delete"
+    class="press-button -ghost -danger -icon"
     aria-label={"Delete #{@store.name}"}
     title="Delete"
     hx-delete={~p"/manage/stores/#{@store.id}"}
     hx-target={"#store-#{@store.id}"}
     hx-swap="outerHTML"
     hx-confirm={"Delete #{@store.name}? Its route and cached categorisations go with it."}
-    data-accent="ruby"
   >
-    ×
+    <svg
+      class="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   </button>
 </li>

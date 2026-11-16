@@ -2,25 +2,45 @@
   <div class="section-move">
     <button
       type="button"
-      class="section-move-button"
+      class="press-button -ghost -icon -small"
       aria-label={"Move #{@section.name} earlier in the route"}
       title="Move up"
       hx-patch={~p"/manage/sections/#{@section.id}/move?direction=up"}
       hx-target="#section-list"
       hx-swap="outerHTML"
     >
-      ↑
+      <svg
+        class="icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 19V5M6 11l6-6 6 6" />
+      </svg>
     </button>
     <button
       type="button"
-      class="section-move-button"
+      class="press-button -ghost -icon -small"
       aria-label={"Move #{@section.name} later in the route"}
       title="Move down"
       hx-patch={~p"/manage/sections/#{@section.id}/move?direction=down"}
       hx-target="#section-list"
       hx-swap="outerHTML"
     >
-      ↓
+      <svg
+        class="icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 5v14M6 13l6 6 6-6" />
+      </svg>
     </button>
   </div>
   <div class="section-fields">
@@ -57,15 +77,23 @@
   </div>
   <button
     type="button"
-    class="item-delete"
+    class="press-button -ghost -danger -icon"
     aria-label={"Delete #{@section.name}"}
     title="Delete"
     hx-delete={~p"/manage/sections/#{@section.id}"}
     hx-target={"#section-#{@section.id}"}
     hx-swap="outerHTML"
     hx-confirm={"Delete #{@section.name}? Its items stay on the list and re-sort on the next open."}
-    data-accent="ruby"
   >
-    ×
+    <svg
+      class="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   </button>
 </li>

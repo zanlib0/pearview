@@ -14,7 +14,7 @@
       <button
         :for={store <- @stores}
         type="button"
-        class={["stamp-button", "-small", store.id == @store.id && "-accent"]}
+        class="press-button -small"
         aria-pressed={to_string(store.id == @store.id)}
         hx-get={~p"/manage/categorizations?store_id=#{store.id}"}
         hx-target="#cache-panel"

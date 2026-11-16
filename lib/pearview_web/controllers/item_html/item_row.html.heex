@@ -30,14 +30,22 @@
   />
   <button
     type="button"
-    class="item-delete"
+    class="press-button -ghost -danger -icon"
     aria-label={"Delete #{@item.name}"}
     title="Delete"
     hx-delete={~p"/items/#{@item.id}"}
     hx-target={"#item-#{@item.id}"}
     hx-swap="outerHTML"
-    data-accent="ruby"
   >
-    ×
+    <svg
+      class="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   </button>
 </li>
